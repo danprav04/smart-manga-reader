@@ -12,6 +12,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         
+      - name: Set Swap Space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 10
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -29,12 +34,16 @@ jobs:
         
       - name: Expo Prebuild
         run: npx expo prebuild --platform android --clean
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
         
       - name: Build Android Release APK
         run: |
           cd android
           chmod +x ./gradlew
           ./gradlew assembleRelease
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dorg.gradle.daemon=false"
           
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
