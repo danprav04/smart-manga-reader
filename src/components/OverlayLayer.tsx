@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, Dimensions, Text } from 'react-native';
 import { useBreakdown } from '../store/breakdownStore';
 import * as Haptics from 'expo-haptics';
+import { logger, LogCategory } from '../utils/logger';
 
 interface OverlayLayerProps {
   onRegionTap: (regionIndex: number) => void;
@@ -17,6 +18,8 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
     return null;
   }
 
+  logger.debug(LogCategory.UI, `OverlayLayer rendering. imageUri: ${state.screenshotUri}, regions: ${state.currentBreakdown?.textRegions?.length}`);
+
   const { textRegions = [] } = state.currentBreakdown;
   const imageUri = state.screenshotUri;
 
@@ -26,7 +29,7 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
   };
 
   return (
-    <View style={[StyleSheet.absoluteFillObject, { zIndex: 100, elevation: 10 }]}>
+    <View style={[StyleSheet.absoluteFillObject, { zIndex: 100 }]} pointerEvents="box-none">
       {/* Frozen Screenshot Background */}
       {imageUri ? (
         <Image 
@@ -44,7 +47,17 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
 
       {/* Render Highlights */}
       {layout.width > 0 && layout.height > 0 && textRegions.map((region, index) => {
-        const [ymin, xmin, ymax, xmax] = region.boundingBox || [0, 0, 0, 0];
+        let ymin = 0, xmin = 0, ymax = 0, xmax = 0;
+        
+        if (Array.isArray(region.boundingBox) && region.boundingBox.length >= 4) {
+          [ymin, xmin, ymax, xmax] = region.boundingBox;
+        } else if (region.boundingBox && typeof region.boundingBox === 'object') {
+          // Fallback if AI returned an object instead of array
+          ymin = (region.boundingBox as any).ymin || 0;
+          xmin = (region.boundingBox as any).xmin || 0;
+          ymax = (region.boundingBox as any).ymax || 0;
+          xmax = (region.boundingBox as any).xmax || 0;
+        }
         
         // Convert normalized (0-1000) to pixel coordinates
         const top = (ymin / 1000) * layout.height;
