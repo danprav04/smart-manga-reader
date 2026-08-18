@@ -1,5 +1,5 @@
 import { captureRef } from 'react-native-view-shot';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export const captureWebView = async (viewRef: any): Promise<{ uri: string; base64: string }> => {
   try {

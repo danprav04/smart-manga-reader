@@ -79,7 +79,12 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
       activeOpacity={0.8}
       disabled={isLoading}
     >
-      <BlurView intensity={80} tint="dark" style={styles.blurContainer}>
+      <BlurView 
+        intensity={80} 
+        tint="dark" 
+        style={styles.blurContainer}
+        experimentalBlurMethod="dimezisBlurView"
+      >
         {isLoading ? (
           <ActivityIndicator color="#fff" size="small" />
         ) : (

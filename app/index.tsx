@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, Alert, TouchableOpacity, Text as RNText, BackHandler, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Alert, TouchableOpacity, Text as RNText, BackHandler, ActivityIndicator as RNActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
 import ViewShot from 'react-native-view-shot';
 import { useRouter } from 'expo-router';
@@ -43,6 +43,10 @@ export default function ReaderScreen() {
   }, [canGoBack]);
 
   const handleNavigationStateChange = async (navState: any) => {
+    if (navState.loading) {
+      setIsPageLoading(true);
+    }
+    
     const url = navState.url;
     setCurrentUrl(url);
     setCanGoBack(navState.canGoBack);
@@ -115,6 +119,10 @@ export default function ReaderScreen() {
           source={{ uri: settings.readerBaseUrl || readerConfig.defaultUrl }}
           userAgent={readerConfig.userAgent}
           onNavigationStateChange={handleNavigationStateChange}
+          onShouldStartLoadWithRequest={(request) => {
+            setIsPageLoading(true);
+            return true;
+          }}
           onLoadStart={() => setIsPageLoading(true)}
           onLoadEnd={() => setIsPageLoading(false)}
           {...readerConfig.webViewProps}
@@ -135,7 +143,7 @@ export default function ReaderScreen() {
       {/* Page Loading Indicator */}
       {isPageLoading && (
         <View style={[styles.loadingIndicator, { top: Math.max(insets.top, 16) + 16 }]} pointerEvents="none">
-          <ActivityIndicator color="#fff" size="small" />
+          <RNActivityIndicator color="#fff" size="small" />
         </View>
       )}
 
