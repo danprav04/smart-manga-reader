@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Pressable, Image, Dimensions, Text, StatusBar } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Image, Dimensions, Text, StatusBar } from 'react-native';
 import { useBreakdown } from '../store/breakdownStore';
 import * as Haptics from 'expo-haptics';
 import { logger, LogCategory } from '../utils/logger';
@@ -50,10 +50,9 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
       )}
 
       {/* Dimmer overlay — tapping outside any region dismisses */}
-      <Pressable
-        style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)' }]}
-        onPress={onDismiss}
-      />
+      <TouchableWithoutFeedback onPress={onDismiss}>
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)' }]} />
+      </TouchableWithoutFeedback>
 
       {/* Render Highlights */}
       {textRegions.map((region, index) => {
