@@ -50,41 +50,61 @@ const analyzeWithGemini = async (base64Image: string, settings: Settings): Promi
   const apiKey = await getGeminiApiKey();
   if (!apiKey) throw new Error('Gemini API key is not set');
 
-  const model = settings.geminiModel || 'gemini-3.5-flash-lite';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: {
-        parts: [{ text: getSystemPrompt(settings.japaneseLevel) }]
-      },
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { text: 'Analyze this manga page.' },
-            { inline_data: { mime_type: 'image/jpeg', data: base64Image } }
-          ]
-        }
-      ],
-      generationConfig: {
-        response_mime_type: 'application/json',
-      }
-    })
-  });
-
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Gemini API error: ${err}`);
+  const defaultSequence = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash'];
+  const modelsToTry = [settings.geminiModel || 'gemini-3.7-flash'];
+  
+  // Add the default sequence as fallbacks, removing duplicates
+  for (const model of defaultSequence) {
+    if (!modelsToTry.includes(model)) {
+      modelsToTry.push(model);
+    }
   }
 
-  const data = await response.json();
-  const jsonString = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!jsonString) throw new Error('Invalid response from Gemini');
+  let lastError: Error | null = null;
 
-  return JSON.parse(jsonString) as BreakdownResult;
+  for (const model of modelsToTry) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: {
+            parts: [{ text: getSystemPrompt(settings.japaneseLevel) }]
+          },
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: 'Analyze this manga page.' },
+                { inline_data: { mime_type: 'image/jpeg', data: base64Image } }
+              ]
+            }
+          ],
+          generationConfig: {
+            response_mime_type: 'application/json',
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Gemini API error with model ${model}: ${err}`);
+      }
+
+      const data = await response.json();
+      const jsonString = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!jsonString) throw new Error(`Invalid response from Gemini model ${model}`);
+
+      return JSON.parse(jsonString) as BreakdownResult;
+    } catch (error) {
+      console.warn(`Failed with model ${model}, trying next...`, error);
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+
+  throw lastError || new Error('All fallback models failed');
 };
 
 const analyzeWithOpenAI = async (base64Image: string, settings: Settings): Promise<BreakdownResult> => {
@@ -98,7 +118,7 @@ const analyzeWithOpenAI = async (base64Image: string, settings: Settings): Promi
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': \`Bearer \${apiKey}\`
+      'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
       model: settings.openaiModel || 'gpt-4o',
@@ -111,7 +131,7 @@ const analyzeWithOpenAI = async (base64Image: string, settings: Settings): Promi
             { type: 'text', text: 'Analyze this manga page.' },
             {
               type: 'image_url',
-              image_url: { url: \`data:image/jpeg;base64,\${base64Image}\` }
+              image_url: { url: `data:image/jpeg;base64,${base64Image}` }
             }
           ]
         }

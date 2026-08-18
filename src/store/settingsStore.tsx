@@ -11,7 +11,7 @@ interface SettingsContextType {
 
 const defaultSettings: Settings = {
   aiProvider: 'gemini',
-  geminiModel: 'gemini-3.5-flash-lite',
+  geminiModel: 'gemini-3.7-flash',
   openaiBaseUrl: '',
   openaiModel: '',
   readerBaseUrl: 'https://www.cmoa.jp',
