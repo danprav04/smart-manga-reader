@@ -1,9 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, SafeAreaView, Alert, TouchableOpacity, Text as RNText } from 'react-native';
+import { View, StyleSheet, Alert, TouchableOpacity, Text as RNText, BackHandler } from 'react-native';
 import { WebView } from 'react-native-webview';
 import ViewShot from 'react-native-view-shot';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSettings } from '../src/store/settingsStore';
 import { useBreakdown } from '../src/store/breakdownStore';
@@ -27,10 +27,24 @@ export default function ReaderScreen() {
   const sheetRef = useRef<BreakdownSheetRef>(null);
 
   const [currentUrl, setCurrentUrl] = useState(settings.readerBaseUrl || readerConfig.defaultUrl);
+  const [canGoBack, setCanGoBack] = useState(false);
+
+  React.useEffect(() => {
+    const onBackPress = () => {
+      if (canGoBack && webViewRef.current) {
+        webViewRef.current.goBack();
+        return true;
+      }
+      return false;
+    };
+    BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+  }, [canGoBack]);
 
   const handleNavigationStateChange = async (navState: any) => {
     const url = navState.url;
     setCurrentUrl(url);
+    setCanGoBack(navState.canGoBack);
     
     // Check if we have a cached breakdown for this new URL
     try {
