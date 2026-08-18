@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, Alert, TouchableOpacity, Text as RNText, BackHandler, ActivityIndicator as RNActivityIndicator } from 'react-native';
+import { View, StyleSheet, Alert, TouchableOpacity, Text as RNText, BackHandler, ActivityIndicator as RNActivityIndicator, Modal } from 'react-native';
 import { WebView } from 'react-native-webview';
 import ViewShot from 'react-native-view-shot';
 import { useRouter } from 'expo-router';
@@ -208,6 +208,7 @@ export default function ReaderScreen() {
           onLoadEnd={() => setIsPageLoading(false)}
           {...readerConfig.webViewProps}
           onMessage={handleWebViewMessage}
+          androidLayerType={state.overlayVisible ? 'software' : 'hardware'}
           style={[styles.webview, { opacity: 0.99 }]}
           injectedJavaScript={
             `
@@ -261,15 +262,21 @@ export default function ReaderScreen() {
         />
       </ViewShot>
 
-      {/* Overlay - MUST be outside ViewShot at SafeAreaView level.
-          Android WebView uses a SurfaceView that always paints over siblings
-          within the same parent, but views in a different branch of the tree
-          (like this, and the settings gear) render on top correctly. */}
-      <OverlayLayer 
-        onRegionTap={handleRegionTap}
-        onDismiss={() => dispatch({ type: 'DISMISS_OVERLAY' })}
-        onReanalyze={handleReanalyze}
-      />
+      {/* Overlay rendered in a Modal — guarantees a separate Android Window
+          that paints above the WebView's SurfaceView. */}
+      <Modal
+        visible={state.overlayVisible}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => dispatch({ type: 'DISMISS_OVERLAY' })}
+      >
+        <OverlayLayer 
+          onRegionTap={handleRegionTap}
+          onDismiss={() => dispatch({ type: 'DISMISS_OVERLAY' })}
+          onReanalyze={handleReanalyze}
+        />
+      </Modal>
 
       {/* Page Loading Indicator */}
       {isPageLoading && (

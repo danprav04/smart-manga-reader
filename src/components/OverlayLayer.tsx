@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Image, Dimensions, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Pressable, Image, Dimensions, Text, StatusBar } from 'react-native';
 import { useBreakdown } from '../store/breakdownStore';
 import * as Haptics from 'expo-haptics';
 import { logger, LogCategory } from '../utils/logger';
@@ -15,7 +15,9 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
   const [layout, setLayout] = useState({ width: 0, height: 0 });
   const windowDimensions = Dimensions.get('window');
 
-  if (!state.overlayVisible || !state.currentBreakdown) {
+  // Note: visibility is now controlled by the parent Modal wrapper in index.tsx.
+  // We only guard against missing data here.
+  if (!state.currentBreakdown) {
     return null;
   }
 
@@ -30,21 +32,25 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
   };
 
   return (
-    <View style={[StyleSheet.absoluteFillObject, { zIndex: 100, elevation: 100 }]} pointerEvents="box-none">
+    <View style={styles.fullScreen}>
+      <StatusBar translucent backgroundColor="transparent" />
       {/* Frozen Screenshot Background */}
       {imageUri ? (
         <Image 
           source={{ uri: imageUri }} 
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           resizeMode="stretch" // Use stretch since we map coordinates strictly
           onLayout={(e) => setLayout({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
         />
       ) : (
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.5)' }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]} />
       )}
 
-      {/* Dimmer overlay to make highlights pop */}
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.4)' }]} pointerEvents="none" />
+      {/* Dimmer overlay — tapping outside any region dismisses */}
+      <Pressable
+        style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)' }]}
+        onPress={onDismiss}
+      />
 
       {/* Render Highlights */}
       {textRegions.map((region, index) => {
@@ -101,6 +107,10 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
 };
 
 const styles = StyleSheet.create({
+  fullScreen: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
   highlightZone: {
     position: 'absolute',
     backgroundColor: 'rgba(100, 180, 255, 0.25)', // Faint blue wash
@@ -109,7 +119,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   highlightBorder: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.4)',
     borderRadius: 4,
