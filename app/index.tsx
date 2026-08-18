@@ -259,6 +259,13 @@ export default function ReaderScreen() {
             `
           }
         />
+        
+        {/* Renders over the WebView when active (placed inside ViewShot to guarantee correct Android Z-order) */}
+        <OverlayLayer 
+          onRegionTap={handleRegionTap}
+          onDismiss={() => dispatch({ type: 'DISMISS_OVERLAY' })}
+          onReanalyze={handleReanalyze}
+        />
       </ViewShot>
 
       {/* Page Loading Indicator */}
@@ -285,13 +292,6 @@ export default function ReaderScreen() {
           hasCachedBreakdown={state.hasCachedBreakdown}
         />
       )}
-
-      {/* Renders over everything when active */}
-      <OverlayLayer 
-        onRegionTap={handleRegionTap}
-        onDismiss={() => dispatch({ type: 'DISMISS_OVERLAY' })}
-        onReanalyze={handleReanalyze}
-      />
 
       <BreakdownSheet ref={sheetRef} />
     </SafeAreaView>
