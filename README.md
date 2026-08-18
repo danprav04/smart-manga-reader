@@ -1,56 +1,85 @@
-# Welcome to your Expo app 👋
+# Smart Manga Reader
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Smart Manga Reader is a React Native app built with Expo that allows users to read manga directly from the web while providing AI-powered Japanese translation, grammar explanations, and vocabulary breakdowns. It seamlessly overlays educational insights on top of the manga pages using on-device screenshot captures and AI vision APIs.
 
-## Get started
+## Features
 
-1. Install dependencies
+- **Built-in Web Browser**: Browse and read your favorite manga sites within the app.
+- **AI-Powered Breakdown**: Captures the current screen and uses AI (Gemini/OpenAI) to analyze the page.
+- **Interactive Overlay**: Tappable bounding boxes over Japanese text to view translations.
+- **Language Tutoring**: Provides romaji/kana readings, English translations, grammar point explanations, and vocabulary lists tailored to your progression level.
+- **Offline Caching**: Saves previous page breakdowns to a local SQLite database for quick re-access without re-calling the AI API.
+- **Night Mode**: Custom CSS injection to invert colors for comfortable reading in the dark.
 
+## Tech Stack
+
+- **Framework**: React Native with Expo (SDK 57)
+- **Routing**: Expo Router
+- **State Management**: React Context / Hooks (`useSettings`, `useBreakdown`)
+- **Storage**: Expo SQLite (caching breakdowns), AsyncStorage (settings), Expo Secure Store (API keys)
+- **AI Integration**: Gemini Vision API & OpenAI Vision API
+- **UI Components**: `@gorhom/bottom-sheet`, `react-native-reanimated`, `expo-glass-effect`
+- **Utilities**: `react-native-view-shot` for screen capture, `react-native-webview` for browsing
+
+## Prerequisites
+
+- Node.js
+- npm or yarn
+- Expo CLI
+- API keys for AI services:
+  - Gemini API Key (recommended) OR
+  - OpenAI API Key
+
+## Getting Started
+
+1. **Clone the repository:**
+   ```bash
+   git clone <repo-url>
+   cd smart-manga-reader
+   ```
+
+2. **Install dependencies:**
    ```bash
    npm install
    ```
 
-2. Start the app
-
+3. **Start the app:**
    ```bash
-   npx expo start
+   npm start
+   ```
+   Or to run directly on an emulator:
+   ```bash
+   npm run android
+   npm run ios
    ```
 
-In the output, you'll find options to open the app in a
+4. **Development Build:**
+   This project uses custom native modules (like `react-native-view-shot`), so you may need a development build instead of standard Expo Go.
+   ```bash
+   npm run android:dev
+   npm run ios:dev
+   ```
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+5. **Configure API Keys:**
+   Open the app, navigate to the Settings screen (⚙️), and enter your Gemini or OpenAI API key.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Project Structure
 
-## Get a fresh project
+- `/app`: Expo Router file-based routing screens (`index.tsx` for the main reader, `settings.tsx` for configuration).
+- `/src/components`: UI components like the breakdown bottom sheet and text overlays.
+- `/src/services`: Core logic including AI API calls (`aiService.ts`), SQLite database (`databaseService.ts`), and screen capturing (`screenshotService.ts`).
+- `/src/store`: State management hooks for breakdown data and user settings.
+- `/src/config`: App configuration and defaults.
 
-When you're ready, run:
+## How it Works
 
-```bash
-npm run reset-project
-```
+1. The user browses to a manga chapter using the embedded `WebView`.
+2. Tapping the Floating Action Button triggers `react-native-view-shot` to capture the current visible screen.
+3. The image is sent to the AI vision model (Gemini or OpenAI) along with a specialized system prompt.
+4. The AI returns a structured JSON payload containing bounding boxes, translations, vocabulary, and grammar notes.
+5. The data is cached in the local SQLite database.
+6. An `OverlayLayer` renders clickable boxes over the manga, and a bottom sheet displays the detailed linguistic breakdown.
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## License
 
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
