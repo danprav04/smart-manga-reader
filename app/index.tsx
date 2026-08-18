@@ -208,7 +208,7 @@ export default function ReaderScreen() {
           onLoadEnd={() => setIsPageLoading(false)}
           {...readerConfig.webViewProps}
           onMessage={handleWebViewMessage}
-          style={[styles.webview, state.overlayVisible ? { opacity: 0 } : {}]}
+          style={[styles.webview, state.overlayVisible && { height: 0, flex: 0, overflow: 'hidden' }]}
           injectedJavaScript={
             `
             ${readerConfig.injectedCSS ? `
