@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Image, Dimensions, Text, Modal } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Image, Dimensions, Text } from 'react-native';
 import { useBreakdown } from '../store/breakdownStore';
 import * as Haptics from 'expo-haptics';
 import { logger, LogCategory } from '../utils/logger';
@@ -30,8 +30,7 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
   };
 
   return (
-    <Modal visible={true} transparent={true} animationType="fade" onRequestClose={onDismiss}>
-      <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+    <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
       {/* Frozen Screenshot Background */}
       {imageUri ? (
         <Image 
@@ -98,7 +97,6 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
         </TouchableOpacity>
       </View>
     </View>
-    </Modal>
   );
 };
 

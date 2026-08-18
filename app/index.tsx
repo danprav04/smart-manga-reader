@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, Alert, TouchableOpacity, Text as RNText, BackHandler, ActivityIndicator as RNActivityIndicator } from 'react-native';
+import { View, StyleSheet, Alert, TouchableOpacity, Text as RNText, BackHandler, ActivityIndicator as RNActivityIndicator, Modal } from 'react-native';
 import { WebView } from 'react-native-webview';
 import ViewShot from 'react-native-view-shot';
 import { useRouter } from 'expo-router';
@@ -286,14 +286,21 @@ export default function ReaderScreen() {
         />
       )}
 
-      {/* Renders over everything when active */}
-      <OverlayLayer 
-        onRegionTap={handleRegionTap}
-        onDismiss={() => dispatch({ type: 'DISMISS_OVERLAY' })}
-        onReanalyze={handleReanalyze}
-      />
+      <Modal
+        visible={state.overlayVisible && !!state.currentBreakdown}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => dispatch({ type: 'DISMISS_OVERLAY' })}
+      >
+        {/* Renders over everything when active */}
+        <OverlayLayer 
+          onRegionTap={handleRegionTap}
+          onDismiss={() => dispatch({ type: 'DISMISS_OVERLAY' })}
+          onReanalyze={handleReanalyze}
+        />
 
-      <BreakdownSheet ref={sheetRef} />
+        <BreakdownSheet ref={sheetRef} />
+      </Modal>
     </SafeAreaView>
   );
 }
