@@ -102,12 +102,12 @@ export default function ReaderScreen() {
           style={styles.webview}
           injectedJavaScript={
             readerConfig.injectedCSS 
-              ? \`
+              ? `
                 const style = document.createElement('style');
-                style.innerHTML = \`\${readerConfig.injectedCSS}\`;
+                style.innerHTML = \`${readerConfig.injectedCSS}\`;
                 document.head.appendChild(style);
                 true;
-              \`
+              `
               : undefined
           }
         />
