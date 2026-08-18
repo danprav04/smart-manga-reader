@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, SafeAreaView, Alert } from 'react-native';
+import { View, StyleSheet, SafeAreaView, Alert, TouchableOpacity, Text as RNText } from 'react-native';
 import { WebView } from 'react-native-webview';
 import ViewShot from 'react-native-view-shot';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useSettings } from '../src/store/settingsStore';
 import { useBreakdown } from '../src/store/breakdownStore';
@@ -17,6 +18,7 @@ import { BreakdownSheet, BreakdownSheetRef } from '../src/components/BreakdownSh
 
 export default function ReaderScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { settings } = useSettings();
   const { state, dispatch } = useBreakdown();
   
@@ -113,9 +115,19 @@ export default function ReaderScreen() {
         />
       </ViewShot>
 
+      {/* Settings Button */}
+      <TouchableOpacity 
+        style={[styles.settingsButton, { top: Math.max(insets.top, 16) + 10 }]} 
+        onPress={() => router.push('/settings')}
+        activeOpacity={0.7}
+      >
+        <RNText style={styles.settingsIcon}>⚙️</RNText>
+      </TouchableOpacity>
+
       {!state.overlayVisible && (
         <FloatingActionButton 
           onPress={handleFabPress}
+          onLongPress={() => router.push('/settings')}
           isLoading={state.isAnalyzing}
           hasCachedBreakdown={state.hasCachedBreakdown}
         />
@@ -141,4 +153,18 @@ const styles = StyleSheet.create({
   webview: {
     flex: 1,
   },
+  settingsButton: {
+    position: 'absolute',
+    left: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 50,
+  },
+  settingsIcon: {
+    fontSize: 22,
+  }
 });

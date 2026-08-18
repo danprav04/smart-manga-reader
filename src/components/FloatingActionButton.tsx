@@ -4,12 +4,14 @@ import * as Haptics from 'expo-haptics';
 
 interface FloatingActionButtonProps {
   onPress: () => void;
+  onLongPress?: () => void;
   isLoading: boolean;
   hasCachedBreakdown: boolean;
 }
 
 export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ 
   onPress, 
+  onLongPress,
   isLoading, 
   hasCachedBreakdown 
 }) => {
@@ -18,10 +20,16 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
     onPress();
   };
 
+  const handleLongPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    onLongPress?.();
+  };
+
   return (
     <TouchableOpacity 
       style={styles.fab} 
       onPress={handlePress}
+      onLongPress={handleLongPress}
       activeOpacity={0.8}
       disabled={isLoading}
     >
