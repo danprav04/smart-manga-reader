@@ -196,7 +196,7 @@ export default function ReaderScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: settings.darkMode ? '#000' : '#F2F2F7' }]}>
-      <ViewShot ref={viewShotRef} style={[styles.container, { backgroundColor: settings.darkMode ? '#000' : '#F2F2F7' }]} options={{ format: 'png', quality: 0.9 }}>
+      <ViewShot ref={viewShotRef} style={[styles.container, { backgroundColor: settings.darkMode ? '#000' : '#F2F2F7' }]} options={{ format: 'jpg', quality: 0.9 }}>
         <WebView
           ref={webViewRef}
           source={{ uri: settings.readerBaseUrl || readerConfig.defaultUrl }}

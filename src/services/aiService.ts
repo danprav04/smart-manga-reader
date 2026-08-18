@@ -14,7 +14,7 @@ For each text region, provide:
 1. The original Japanese text
 2. The reading (with furigana/kana)
 3. The English translation
-4. The bounding box of the text. This MUST be a 4-element array [ymin, xmin, ymax, xmax] where each value is an integer between 0 and 1000 representing normalized coordinates. (0,0 is top-left, 1000,1000 is bottom-right).
+4. The bounding box of the text. This MUST be a 4-element array [ymin, xmin, ymax, xmax] where each value is an integer between 0 and 1000 representing normalized coordinates (0,0 is top-left, 1000,1000 is bottom-right). ymin is top, xmin is left, ymax is bottom, xmax is right. Ensure the box tightly wraps the Japanese text itself, NOT the surrounding speech bubble.
 
 Also provide a deduplicated list of vocabulary used across all text regions.
 Link each vocabulary item to the index of the text region where it first appeared.

@@ -9,14 +9,14 @@ export const captureWebView = async (viewRef: any): Promise<{ uri: string; base6
     
     // Capture the view as a temporary file
     const uri = await captureRef(viewRef, {
-      format: 'png',
+      format: 'jpg',
       quality: 0.9,
     });
     logger.debug(LogCategory.SCREENSHOT, `Captured temporary screenshot at ${uri}`);
 
     // We also need it as a persistent file if we want to store it across app restarts
     const filename = uri.split('/').pop();
-    const persistentUri = FileSystem.documentDirectory + (filename || `screenshot_${Date.now()}.png`);
+    const persistentUri = FileSystem.documentDirectory + (filename || `screenshot_${Date.now()}.jpg`);
     
     await FileSystem.copyAsync({
       from: uri,
