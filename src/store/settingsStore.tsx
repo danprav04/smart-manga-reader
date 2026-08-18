@@ -15,6 +15,7 @@ const defaultSettings: Settings = {
   geminiFallbackSequence: 'gemini-3.7-flash, gemini-3.6-flash, gemini-3.5-flash',
   openaiBaseUrl: '',
   openaiModel: '',
+  openaiFallbackSequence: '',
   readerBaseUrl: 'https://www.cmoa.jp',
   japaneseLevel: '',
   darkMode: true,

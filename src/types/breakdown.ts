@@ -49,6 +49,7 @@ export interface Settings {
   geminiFallbackSequence: string;
   openaiBaseUrl: string;
   openaiModel: string;
+  openaiFallbackSequence: string;
   readerBaseUrl: string;
   japaneseLevel: string;
   darkMode: boolean;

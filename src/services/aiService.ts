@@ -177,47 +177,69 @@ const analyzeWithOpenAI = async (base64Image: string, settings: Settings): Promi
   const baseUrl = settings.openaiBaseUrl || 'https://api.openai.com/v1';
   const url = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
 
-  const modelToUse = settings.openaiModel || 'gpt-4o';
-  logger.info(LogCategory.AI, `Using OpenAI API with model: ${modelToUse}`);
+  const defaultSequence = settings.openaiFallbackSequence 
+    ? settings.openaiFallbackSequence.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+  const modelsToTry = [settings.openaiModel || 'gpt-4o'];
   
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: modelToUse,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: getSystemPrompt(settings.japaneseLevel) },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: 'Analyze this manga page.' },
+  // Add the default sequence as fallbacks, removing duplicates
+  for (const model of defaultSequence) {
+    if (!modelsToTry.includes(model)) {
+      modelsToTry.push(model);
+    }
+  }
+
+  let lastError: Error | null = null;
+
+  for (const modelToUse of modelsToTry) {
+    logger.info(LogCategory.AI, `Using OpenAI API with model: ${modelToUse}`);
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: modelToUse,
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: getSystemPrompt(settings.japaneseLevel) },
             {
-              type: 'image_url',
-              image_url: { url: `data:image/jpeg;base64,${base64Image}` }
+              role: 'user',
+              content: [
+                { type: 'text', text: 'Analyze this manga page.' },
+                {
+                  type: 'image_url',
+                  image_url: { url: `data:image/jpeg;base64,${base64Image}` }
+                }
+              ]
             }
           ]
-        }
-      ]
-    })
-  });
+        })
+      });
 
-  if (!response.ok) {
-    const err = await response.text();
-    logger.warn(LogCategory.AI, `OpenAI API error: status ${response.status}`);
-    throw new Error(`OpenAI API error: ${err}`);
+      if (!response.ok) {
+        const err = await response.text();
+        logger.warn(LogCategory.AI, `OpenAI API error with model ${modelToUse}: status ${response.status}`);
+        throw new Error(`OpenAI API error with model ${modelToUse}: ${err}`);
+      }
+
+      const data = await response.json();
+      const jsonString = data.choices?.[0]?.message?.content;
+      if (!jsonString) {
+        logger.warn(LogCategory.AI, `Invalid response format from OpenAI API model ${modelToUse}`);
+        throw new Error(`Invalid response from OpenAI API model ${modelToUse}`);
+      }
+
+      logger.debug(LogCategory.AI, `Successfully received response from OpenAI model ${modelToUse}, parsing JSON...`);
+      return parseAndSalvageJson(jsonString);
+    } catch (error) {
+      logger.warn(LogCategory.AI, `Failed with OpenAI model ${modelToUse}, trying next...`, error);
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
   }
 
-  const data = await response.json();
-  const jsonString = data.choices?.[0]?.message?.content;
-  if (!jsonString) {
-    logger.warn(LogCategory.AI, `Invalid response format from OpenAI API`);
-    throw new Error('Invalid response from OpenAI API');
-  }
-
-  logger.debug(LogCategory.AI, `Successfully received response from OpenAI, parsing JSON...`);
-  return parseAndSalvageJson(jsonString);
+  throw lastError || new Error('All fallback OpenAI models failed');
 };

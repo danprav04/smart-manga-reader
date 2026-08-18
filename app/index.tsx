@@ -304,6 +304,18 @@ export default function ReaderScreen() {
             onDismiss={() => dispatch({ type: 'DISMISS_OVERLAY' })}
             onReanalyze={handleReanalyze}
           />
+
+          {/* Settings Button (Inside Modal) */}
+          <TouchableOpacity 
+            style={[styles.settingsButton, { top: Math.max(insets.top, 16) + 10 }]} 
+            onPress={() => {
+              dispatch({ type: 'DISMISS_OVERLAY' });
+              router.push('/settings');
+            }}
+            activeOpacity={0.7}
+          >
+            <RNText style={styles.settingsIcon}>⚙️</RNText>
+          </TouchableOpacity>
         </GestureHandlerRootView>
       </Modal>
 

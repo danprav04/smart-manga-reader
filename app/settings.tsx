@@ -4,10 +4,6 @@ import { useSettings, getGeminiApiKey, setGeminiApiKey, getOpenAIApiKey, setOpen
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
-import * as DocumentPicker from 'expo-document-picker';
-import { closeDatabase, initDatabase } from '../src/services/databaseService';
 export default function SettingsScreen() {
   const { settings, updateSettings, isLoading } = useSettings();
   const insets = useSafeAreaInsets();
@@ -38,92 +34,6 @@ export default function SettingsScreen() {
     await setGeminiApiKey(geminiKey);
     await setOpenAIApiKey(openaiKey);
     Alert.alert('Saved', 'API keys saved securely.');
-  };
-
-  const handleExportDatabase = async () => {
-    try {
-      const dbPath = `${FileSystem.documentDirectory}SQLite/smartmanga.db`;
-      const fileInfo = await FileSystem.getInfoAsync(dbPath);
-      
-      if (!fileInfo.exists) {
-        Alert.alert('Error', 'Database file does not exist yet.');
-        return;
-      }
-
-      const canShare = await Sharing.isAvailableAsync();
-      if (!canShare) {
-        Alert.alert('Error', 'Sharing is not available on this device.');
-        return;
-      }
-
-      await Sharing.shareAsync(dbPath, {
-        mimeType: 'application/x-sqlite3',
-        dialogTitle: 'Export Smart Manga Reader Database',
-      });
-    } catch (error) {
-      console.error('Export error:', error);
-      Alert.alert('Export Failed', 'Failed to export the database.');
-    }
-  };
-
-  const handleImportDatabase = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/x-sqlite3', 'application/octet-stream', '*/*'],
-        copyToCacheDirectory: true,
-      });
-
-      if (result.canceled || !result.assets || result.assets.length === 0) {
-        return;
-      }
-
-      const fileUri = result.assets[0].uri;
-      
-      Alert.alert(
-        'Confirm Import',
-        'This will overwrite your current database. Are you sure you want to proceed?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Import', 
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                // Close current connection
-                await closeDatabase();
-                
-                const dbPath = `${FileSystem.documentDirectory}SQLite/smartmanga.db`;
-                
-                // Make sure SQLite directory exists
-                const sqliteDir = `${FileSystem.documentDirectory}SQLite`;
-                const dirInfo = await FileSystem.getInfoAsync(sqliteDir);
-                if (!dirInfo.exists) {
-                  await FileSystem.makeDirectoryAsync(sqliteDir, { intermediates: true });
-                }
-
-                // Copy picked file to DB path
-                await FileSystem.copyAsync({
-                  from: fileUri,
-                  to: dbPath,
-                });
-                
-                // Re-initialize database
-                await initDatabase();
-                
-                Alert.alert('Success', 'Database imported successfully!');
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              } catch (err) {
-                console.error('Import process error:', err);
-                Alert.alert('Error', 'Failed to replace database file.');
-              }
-            }
-          }
-        ]
-      );
-    } catch (error) {
-      console.error('Import error:', error);
-      Alert.alert('Import Failed', 'Failed to select the database file.');
-    }
   };
 
   const themeStyles = {
@@ -228,6 +138,15 @@ export default function SettingsScreen() {
             placeholder="gpt-4o"
             placeholderTextColor={themeStyles.placeholderTextColor}
           />
+          <Text style={[styles.label, themeStyles.textSecondary]}>Fallback Sequence</Text>
+          <TextInput
+            style={[styles.input, themeStyles.input, { borderColor: themeStyles.borderColor, height: 80, textAlignVertical: 'top' }]}
+            value={settings.openaiFallbackSequence || ''}
+            onChangeText={(val) => updateSettings({ openaiFallbackSequence: val })}
+            multiline
+            placeholder="gpt-4o-mini, gpt-3.5-turbo..."
+            placeholderTextColor={themeStyles.placeholderTextColor}
+          />
         </View>
 
         <View style={[styles.section, themeStyles.section]}>
@@ -282,19 +201,6 @@ export default function SettingsScreen() {
           />
         </View>
 
-        <View style={[styles.section, themeStyles.section]}>
-          <Text style={[styles.sectionTitle, themeStyles.text]}>Data Management</Text>
-          <TouchableOpacity style={[styles.actionButton, isDark ? styles.actionButtonDark : styles.actionButtonLight]} onPress={handleExportDatabase}>
-            <Text style={[styles.actionButtonText, themeStyles.text]}>Export Database</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionButton, isDark ? styles.actionButtonDark : styles.actionButtonLight, { marginTop: 12 }]} onPress={handleImportDatabase}>
-            <Text style={[styles.actionButtonText, themeStyles.text]}>Import Database</Text>
-          </TouchableOpacity>
-          <Text style={[styles.helperText, themeStyles.textSecondary, { marginTop: 12 }]}>
-            Export your database to backup your saved pages, translations, and vocabulary. Importing a database will overwrite your current data.
-          </Text>
-        </View>
-
         <TouchableOpacity style={styles.saveButton} onPress={handleSaveKeys} activeOpacity={0.8}>
           <Text style={styles.saveButtonText}>Save API Keys</Text>
         </TouchableOpacity>
@@ -341,10 +247,4 @@ const styles = StyleSheet.create({
 
   saveButton: { backgroundColor: '#208AEF', paddingVertical: 16, borderRadius: 14, alignItems: 'center', marginTop: 8, marginBottom: 40, shadowColor: '#208AEF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   saveButtonText: { color: '#FFFFFF', fontSize: 17, fontWeight: '600' },
-  
-  actionButton: { paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1 },
-  actionButtonDark: { backgroundColor: '#2C2C2E', borderColor: '#333' },
-  actionButtonLight: { backgroundColor: '#F2F2F7', borderColor: '#E5E5E5' },
-  actionButtonText: { fontSize: 16, fontWeight: '500' },
-  helperText: { fontSize: 13, opacity: 0.7, lineHeight: 18 },
 });
