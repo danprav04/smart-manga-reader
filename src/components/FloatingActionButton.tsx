@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface FloatingActionButtonProps {
   onPress: () => void;
@@ -15,6 +16,8 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
   isLoading, 
   hasCachedBreakdown 
 }) => {
+  const insets = useSafeAreaInsets();
+  
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onPress();
@@ -27,7 +30,7 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
 
   return (
     <TouchableOpacity 
-      style={styles.fab} 
+      style={[styles.fab, { bottom: Math.max(insets.bottom, 24) + 16 }]} 
       onPress={handlePress}
       onLongPress={handleLongPress}
       activeOpacity={0.8}
@@ -40,7 +43,6 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
           <Text style={styles.icon}>✨</Text>
           {hasCachedBreakdown && (
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>✓</Text>
             </View>
           )}
         </View>
@@ -52,42 +54,39 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
 const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    bottom: 24,
     right: 24,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#208AEF',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    // Minimal drop shadow for depth without being too harsh
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
+    shadowRadius: 8,
+    elevation: 4,
   },
   iconContainer: {
     position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   icon: {
     fontSize: 24,
   },
   badge: {
     position: 'absolute',
-    top: -8,
-    right: -8,
+    top: -2,
+    right: -4,
     backgroundColor: '#4CAF50',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 6,
+    width: 12,
+    height: 12,
     borderWidth: 2,
-    borderColor: '#208AEF',
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
+    borderColor: 'rgba(0,0,0,0.5)',
   },
 });

@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Switch, StyleSheet, ScrollView, Button, Alert } from 'react-native';
+import { View, Text, TextInput, Switch, StyleSheet, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, useColorScheme } from 'react-native';
 import { useSettings, getGeminiApiKey, setGeminiApiKey, getOpenAIApiKey, setOpenAIApiKey } from '../src/store/settingsStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 
 export default function SettingsScreen() {
   const { settings, updateSettings, isLoading } = useSettings();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  
+  // Use system color scheme or default to dark for a modern look
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark' || true; // Forcing dark mode based on user request for "add dark mode"
   
   const [geminiKey, setGeminiKey] = useState('');
   const [openaiKey, setOpenaiKey] = useState('');
@@ -19,103 +28,184 @@ export default function SettingsScreen() {
   }, []);
 
   if (isLoading) {
-    return <View style={styles.container}><Text>Loading settings...</Text></View>;
+    return <View style={[styles.container, isDark ? styles.containerDark : styles.containerLight]}><Text style={isDark ? styles.textDark : styles.textLight}>Loading settings...</Text></View>;
   }
 
   const handleSaveKeys = async () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await setGeminiApiKey(geminiKey);
     await setOpenAIApiKey(openaiKey);
     Alert.alert('Saved', 'API keys saved securely.');
   };
 
+  const themeStyles = {
+    container: isDark ? styles.containerDark : styles.containerLight,
+    section: isDark ? styles.sectionDark : styles.sectionLight,
+    text: isDark ? styles.textDark : styles.textLight,
+    textSecondary: isDark ? styles.textSecondaryDark : styles.textSecondaryLight,
+    input: isDark ? styles.inputDark : styles.inputLight,
+    borderColor: isDark ? '#333' : '#E5E5E5',
+    placeholderTextColor: isDark ? '#666' : '#999',
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>AI Provider</Text>
-        <View style={styles.row}>
-          <Text>Use OpenAI Compatible API</Text>
-          <Switch
-            value={settings.aiProvider === 'openai'}
-            onValueChange={(val) => updateSettings({ aiProvider: val ? 'openai' : 'gemini' })}
+    <KeyboardAvoidingView 
+      style={{ flex: 1 }} 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView 
+        style={[styles.container, themeStyles.container]} 
+        contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40, paddingHorizontal: 16 }}
+      >
+        <View style={styles.header}>
+          <Text style={[styles.headerTitle, themeStyles.text]}>Settings</Text>
+          <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
+            <Text style={[styles.closeBtnText, themeStyles.textSecondary]}>Done</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.section, themeStyles.section]}>
+          <View style={[styles.row, { borderBottomWidth: 0 }]}>
+            <Text style={[styles.labelBold, themeStyles.text]}>Use OpenAI Compatible API</Text>
+            <Switch
+              value={settings.aiProvider === 'openai'}
+              onValueChange={(val) => {
+                Haptics.selectionAsync();
+                updateSettings({ aiProvider: val ? 'openai' : 'gemini' });
+              }}
+              trackColor={{ false: '#767577', true: '#208AEF' }}
+              thumbColor={'#fff'}
+            />
+          </View>
+        </View>
+
+        <View style={[styles.section, themeStyles.section]}>
+          <Text style={[styles.sectionTitle, themeStyles.text]}>Gemini Configuration</Text>
+          
+          <Text style={[styles.label, themeStyles.textSecondary]}>API Key</Text>
+          <TextInput
+            style={[styles.input, themeStyles.input, { borderColor: themeStyles.borderColor }]}
+            value={geminiKey}
+            onChangeText={setGeminiKey}
+            secureTextEntry
+            placeholder="AIzaSy..."
+            placeholderTextColor={themeStyles.placeholderTextColor}
+          />
+          
+          <Text style={[styles.label, themeStyles.textSecondary]}>Model Name</Text>
+          <TextInput
+            style={[styles.input, themeStyles.input, { borderColor: themeStyles.borderColor }]}
+            value={settings.geminiModel}
+            onChangeText={(val) => updateSettings({ geminiModel: val })}
+            placeholderTextColor={themeStyles.placeholderTextColor}
+          />
+          <View style={styles.fallbackContainer}>
+            <Text style={[styles.fallbackTitle, themeStyles.textSecondary]}>Fallback Sequence:</Text>
+            <Text style={[styles.fallbackText, themeStyles.textSecondary]}>1. {settings.geminiModel || 'gemini-3.7-flash'}</Text>
+            <Text style={[styles.fallbackText, themeStyles.textSecondary]}>2. gemini-3.7-flash</Text>
+            <Text style={[styles.fallbackText, themeStyles.textSecondary]}>3. gemini-3.6-flash</Text>
+            <Text style={[styles.fallbackText, themeStyles.textSecondary]}>4. gemini-3.5-flash</Text>
+          </View>
+        </View>
+
+        <View style={[styles.section, themeStyles.section]}>
+          <Text style={[styles.sectionTitle, themeStyles.text]}>OpenAI Compatible Configuration</Text>
+          
+          <Text style={[styles.label, themeStyles.textSecondary]}>API Key</Text>
+          <TextInput
+            style={[styles.input, themeStyles.input, { borderColor: themeStyles.borderColor }]}
+            value={openaiKey}
+            onChangeText={setOpenaiKey}
+            secureTextEntry
+            placeholder="sk-..."
+            placeholderTextColor={themeStyles.placeholderTextColor}
+          />
+          
+          <Text style={[styles.label, themeStyles.textSecondary]}>Base URL</Text>
+          <TextInput
+            style={[styles.input, themeStyles.input, { borderColor: themeStyles.borderColor }]}
+            value={settings.openaiBaseUrl}
+            onChangeText={(val) => updateSettings({ openaiBaseUrl: val })}
+            placeholder="https://api.openai.com/v1"
+            placeholderTextColor={themeStyles.placeholderTextColor}
+          />
+          
+          <Text style={[styles.label, themeStyles.textSecondary]}>Model Name</Text>
+          <TextInput
+            style={[styles.input, themeStyles.input, { borderColor: themeStyles.borderColor }]}
+            value={settings.openaiModel}
+            onChangeText={(val) => updateSettings({ openaiModel: val })}
+            placeholder="gpt-4o"
+            placeholderTextColor={themeStyles.placeholderTextColor}
           />
         </View>
-      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Gemini Configuration</Text>
-        <Text style={styles.label}>API Key</Text>
-        <TextInput
-          style={styles.input}
-          value={geminiKey}
-          onChangeText={setGeminiKey}
-          secureTextEntry
-          placeholder="AIzaSy..."
-        />
-        <Text style={styles.label}>Model Name</Text>
-        <TextInput
-          style={styles.input}
-          value={settings.geminiModel}
-          onChangeText={(val) => updateSettings({ geminiModel: val })}
-        />
-      </View>
+        <View style={[styles.section, themeStyles.section]}>
+          <Text style={[styles.sectionTitle, themeStyles.text]}>Reader Settings</Text>
+          
+          <Text style={[styles.label, themeStyles.textSecondary]}>Reader Base URL</Text>
+          <TextInput
+            style={[styles.input, themeStyles.input, { borderColor: themeStyles.borderColor }]}
+            value={settings.readerBaseUrl}
+            onChangeText={(val) => updateSettings({ readerBaseUrl: val })}
+            placeholderTextColor={themeStyles.placeholderTextColor}
+          />
+          
+          <Text style={[styles.label, themeStyles.textSecondary]}>Japanese Level & Context</Text>
+          <TextInput
+            style={[styles.input, themeStyles.input, { borderColor: themeStyles.borderColor, height: 100, textAlignVertical: 'top' }]}
+            value={settings.japaneseLevel}
+            onChangeText={(val) => updateSettings({ japaneseLevel: val })}
+            multiline
+            placeholder="E.g., I know hiragana, katakana, and about 300 kanji. I am studying for N4."
+            placeholderTextColor={themeStyles.placeholderTextColor}
+          />
+        </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>OpenAI Compatible Configuration</Text>
-        <Text style={styles.label}>API Key</Text>
-        <TextInput
-          style={styles.input}
-          value={openaiKey}
-          onChangeText={setOpenaiKey}
-          secureTextEntry
-          placeholder="sk-..."
-        />
-        <Text style={styles.label}>Base URL</Text>
-        <TextInput
-          style={styles.input}
-          value={settings.openaiBaseUrl}
-          onChangeText={(val) => updateSettings({ openaiBaseUrl: val })}
-          placeholder="https://api.openai.com/v1"
-        />
-        <Text style={styles.label}>Model Name</Text>
-        <TextInput
-          style={styles.input}
-          value={settings.openaiModel}
-          onChangeText={(val) => updateSettings({ openaiModel: val })}
-          placeholder="gpt-4o"
-        />
-      </View>
-      
-      <Button title="Save API Keys" onPress={handleSaveKeys} />
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Reader Settings</Text>
-        <Text style={styles.label}>Reader Base URL</Text>
-        <TextInput
-          style={styles.input}
-          value={settings.readerBaseUrl}
-          onChangeText={(val) => updateSettings({ readerBaseUrl: val })}
-        />
+        <TouchableOpacity style={styles.saveButton} onPress={handleSaveKeys} activeOpacity={0.8}>
+          <Text style={styles.saveButtonText}>Save API Keys</Text>
+        </TouchableOpacity>
         
-        <Text style={styles.label}>Japanese Level & Context</Text>
-        <TextInput
-          style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-          value={settings.japaneseLevel}
-          onChangeText={(val) => updateSettings({ japaneseLevel: val })}
-          multiline
-          placeholder="E.g., I know hiragana, katakana, and about 300 kanji. I am studying for N4."
-        />
-      </View>
-      
-      <View style={{ height: 40 }} />
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#f5f5f5' },
-  section: { backgroundColor: 'white', padding: 16, borderRadius: 8, marginBottom: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  label: { fontSize: 14, color: '#333', marginBottom: 4 },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 4, padding: 8, marginBottom: 12 },
+  container: { flex: 1 },
+  containerDark: { backgroundColor: '#000000' },
+  containerLight: { backgroundColor: '#F2F2F7' },
+  
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingHorizontal: 4 },
+  headerTitle: { fontSize: 32, fontWeight: '700', letterSpacing: -0.5 },
+  closeBtn: { paddingVertical: 8, paddingHorizontal: 12, backgroundColor: 'rgba(150,150,150,0.15)', borderRadius: 16 },
+  closeBtnText: { fontSize: 16, fontWeight: '600' },
+
+  section: { borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(150,150,150,0.1)' },
+  sectionDark: { backgroundColor: '#1C1C1E' },
+  sectionLight: { backgroundColor: '#FFFFFF' },
+  
+  sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 16, letterSpacing: -0.3 },
+  
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
+  
+  labelBold: { fontSize: 16, fontWeight: '500' },
+  label: { fontSize: 14, fontWeight: '500', marginBottom: 8, marginTop: 4 },
+  
+  textDark: { color: '#FFFFFF' },
+  textLight: { color: '#000000' },
+  
+  textSecondaryDark: { color: '#EBEBF5' },
+  textSecondaryLight: { color: '#3C3C43' },
+  
+  input: { borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 16, marginBottom: 16 },
+  inputDark: { backgroundColor: '#2C2C2E', color: '#FFFFFF' },
+  inputLight: { backgroundColor: '#F2F2F7', color: '#000000' },
+
+  fallbackContainer: { marginTop: -4, marginBottom: 16, padding: 12, backgroundColor: 'rgba(150,150,150,0.05)', borderRadius: 10 },
+  fallbackTitle: { fontSize: 13, fontWeight: '600', marginBottom: 6, opacity: 0.8 },
+  fallbackText: { fontSize: 13, opacity: 0.6, marginBottom: 2, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+
+  saveButton: { backgroundColor: '#208AEF', paddingVertical: 16, borderRadius: 14, alignItems: 'center', marginTop: 8, marginBottom: 40, shadowColor: '#208AEF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  saveButtonText: { color: '#FFFFFF', fontSize: 17, fontWeight: '600' },
 });
