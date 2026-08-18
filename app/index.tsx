@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as FileSystem from 'expo-file-system/legacy';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useSettings } from '../src/store/settingsStore';
 import { useBreakdown } from '../src/store/breakdownStore';
@@ -22,7 +23,7 @@ import { BreakdownSheet, BreakdownSheetRef } from '../src/components/BreakdownSh
 export default function ReaderScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { settings } = useSettings();
+  const { settings, updateSettings } = useSettings();
   const { state, dispatch } = useBreakdown();
   
   const webViewRef = useRef<WebView>(null);
@@ -194,6 +195,22 @@ export default function ReaderScreen() {
     }
   };
 
+  const handleLoadEnd = async () => {
+    setIsPageLoading(false);
+  };
+
+  const handleSetBaseUrl = () => {
+    updateSettings({ readerBaseUrl: currentUrl });
+    Alert.alert("Base URL Updated", "The app will now start from this page.");
+  };
+
+  // Check if current URL is different from base URL (ignoring trailing slashes or minor differences)
+  const isDifferentFromBase = () => {
+    const base = (settings.readerBaseUrl || readerConfig.defaultUrl).replace(/\/$/, '');
+    const current = currentUrl.replace(/\/$/, '');
+    return base !== current;
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: settings.darkMode ? '#000' : '#F2F2F7' }]}>
       <ViewShot ref={viewShotRef} style={[styles.container, { backgroundColor: settings.darkMode ? '#000' : '#F2F2F7' }]} options={{ format: 'jpg', quality: 0.9 }}>
@@ -207,7 +224,7 @@ export default function ReaderScreen() {
             return true;
           }}
           onLoadStart={() => setIsPageLoading(true)}
-          onLoadEnd={() => setIsPageLoading(false)}
+          onLoadEnd={handleLoadEnd}
           {...readerConfig.webViewProps}
           onMessage={handleWebViewMessage}
           androidLayerType={state.overlayVisible ? 'software' : 'hardware'}
@@ -301,6 +318,17 @@ export default function ReaderScreen() {
       >
         <RNText style={styles.settingsIcon}>⚙️</RNText>
       </TouchableOpacity>
+
+      {/* Set Base URL Button */}
+      {isDifferentFromBase() && (
+        <TouchableOpacity 
+          style={[styles.settingsButton, { top: Math.max(insets.top, 16) + 64 }]} 
+          onPress={handleSetBaseUrl}
+          activeOpacity={0.7}
+        >
+          <RNText style={styles.settingsIcon}>📌</RNText>
+        </TouchableOpacity>
+      )}
 
       {!state.overlayVisible && (
         <FloatingActionButton 

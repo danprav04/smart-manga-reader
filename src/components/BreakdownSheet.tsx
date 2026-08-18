@@ -120,7 +120,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
     <Animated.View
       style={[
         styles.sheetContainer,
-        { transform: [{ translateY }] },
+        { top: translateY },
       ]}
     >
       {/* Drag Handle */}
