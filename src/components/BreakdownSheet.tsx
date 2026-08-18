@@ -47,6 +47,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, {}>((props, ref) => 
       snapPoints={snapPoints}
       backgroundStyle={styles.background}
       handleIndicatorStyle={styles.indicator}
+      style={{ zIndex: 100, elevation: 10 }}
     >
       <ScrollView ref={scrollViewRef} style={styles.contentContainer}>
         

@@ -65,7 +65,9 @@ const analyzeWithGemini = async (base64Image: string, settings: Settings): Promi
   const apiKey = await getGeminiApiKey();
   if (!apiKey) throw new Error('Gemini API key is not set');
 
-  const defaultSequence = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash'];
+  const defaultSequence = settings.geminiFallbackSequence 
+    ? settings.geminiFallbackSequence.split(',').map(s => s.trim()).filter(Boolean)
+    : ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash'];
   const modelsToTry = [settings.geminiModel || 'gemini-3.7-flash'];
   
   // Add the default sequence as fallbacks, removing duplicates

@@ -26,7 +26,7 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
   };
 
   return (
-    <View style={StyleSheet.absoluteFillObject}>
+    <View style={[StyleSheet.absoluteFillObject, { zIndex: 100, elevation: 10 }]}>
       {/* Frozen Screenshot Background */}
       {imageUri ? (
         <Image 

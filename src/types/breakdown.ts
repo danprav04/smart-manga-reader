@@ -51,4 +51,6 @@ export interface Settings {
   openaiModel: string;
   readerBaseUrl: string;
   japaneseLevel: string;
+  darkMode: boolean;
+  nightReader: boolean;
 }

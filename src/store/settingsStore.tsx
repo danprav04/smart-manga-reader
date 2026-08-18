@@ -17,6 +17,8 @@ const defaultSettings: Settings = {
   openaiModel: '',
   readerBaseUrl: 'https://www.cmoa.jp',
   japaneseLevel: '',
+  darkMode: true,
+  nightReader: false,
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);

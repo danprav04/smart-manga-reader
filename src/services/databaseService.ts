@@ -12,6 +12,13 @@ const getDb = async () => {
   return dbInstance;
 };
 
+export const closeDatabase = async (): Promise<void> => {
+  if (dbInstance) {
+    await dbInstance.closeAsync();
+    dbInstance = null;
+  }
+};
+
 export const initDatabase = async (): Promise<void> => {
   const db = await getDb();
   

@@ -65,6 +65,31 @@ export default function ReaderScreen() {
     }
   };
 
+  React.useEffect(() => {
+    if (webViewRef.current) {
+      if (settings.nightReader) {
+        webViewRef.current.injectJavaScript(`
+          if (!document.getElementById('night-reader-style')) {
+            const nightStyle = document.createElement('style');
+            nightStyle.id = 'night-reader-style';
+            nightStyle.innerHTML = \`
+              html { filter: invert(1) hue-rotate(180deg); background-color: #fff !important; }
+              img, canvas, video { filter: invert(1) hue-rotate(180deg); }
+            \`;
+            document.head.appendChild(nightStyle);
+          }
+          true;
+        `);
+      } else {
+        webViewRef.current.injectJavaScript(`
+          const existing = document.getElementById('night-reader-style');
+          if (existing) existing.remove();
+          true;
+        `);
+      }
+    }
+  }, [settings.nightReader]);
+
   const performAnalysis = async (urlToAnalyze: string, reanalyze = false) => {
     if (state.isAnalyzing) return;
     
@@ -117,8 +142,8 @@ export default function ReaderScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ViewShot ref={viewShotRef} style={styles.container} options={{ format: 'png', quality: 0.9 }}>
+    <SafeAreaView style={[styles.container, { backgroundColor: settings.darkMode ? '#000' : '#F2F2F7' }]}>
+      <ViewShot ref={viewShotRef} style={[styles.container, { backgroundColor: settings.darkMode ? '#000' : '#F2F2F7' }]} options={{ format: 'png', quality: 0.9 }}>
         <WebView
           ref={webViewRef}
           source={{ uri: settings.readerBaseUrl || readerConfig.defaultUrl }}
@@ -133,14 +158,23 @@ export default function ReaderScreen() {
           {...readerConfig.webViewProps}
           style={styles.webview}
           injectedJavaScript={
-            readerConfig.injectedCSS 
-              ? `
-                const style = document.createElement('style');
-                style.innerHTML = \`${readerConfig.injectedCSS}\`;
-                document.head.appendChild(style);
-                true;
-              `
-              : undefined
+            `
+            ${readerConfig.injectedCSS ? `
+              const style = document.createElement('style');
+              style.innerHTML = \`${readerConfig.injectedCSS}\`;
+              document.head.appendChild(style);
+            ` : ''}
+            ${settings.nightReader ? `
+              const nightStyle = document.createElement('style');
+              nightStyle.id = 'night-reader-style';
+              nightStyle.innerHTML = \`
+                html { filter: invert(1) hue-rotate(180deg); background-color: #fff !important; }
+                img, canvas, video { filter: invert(1) hue-rotate(180deg); }
+              \`;
+              document.head.appendChild(nightStyle);
+            ` : ''}
+            true;
+            `
           }
         />
       </ViewShot>
