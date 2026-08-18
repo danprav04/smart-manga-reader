@@ -3,8 +3,17 @@ import { BreakdownResult, StoredBreakdown, PageSummary } from '../types/breakdow
 
 const DB_NAME = 'smartmanga.db';
 
+let dbInstance: SQLite.SQLiteDatabase | null = null;
+
+const getDb = async () => {
+  if (!dbInstance) {
+    dbInstance = await SQLite.openDatabaseAsync(DB_NAME, { useNewConnection: true });
+  }
+  return dbInstance;
+};
+
 export const initDatabase = async (): Promise<void> => {
-  const db = await SQLite.openDatabaseAsync(DB_NAME);
+  const db = await getDb();
   
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
@@ -65,10 +74,8 @@ export const saveBreakdown = async (
   screenshotPath: string | undefined
 ): Promise<number> => {
   if (!url) throw new Error("Cannot save breakdown with empty URL");
-  const db = await SQLite.openDatabaseAsync(DB_NAME);
+  const db = await getDb();
   
-  // Start a transaction implicitly by using runAsync sequentially or with a helper
-  // Wait, in expo-sqlite we can use withTransactionAsync
   let pageId = -1;
   await db.withTransactionAsync(async () => {
     // Upsert the page
@@ -91,8 +98,6 @@ export const saveBreakdown = async (
       ]
     );
     
-    // In SQLite < 3.35 RETURNING might not be available, but we can get it via lastInsertRowId if new, or select it
-    // Wait, let's just select it to be safe.
     const pageRow = await db.getFirstAsync<{id: number}>(`SELECT id FROM pages WHERE url = ?`, [url]);
     if (!pageRow) throw new Error("Failed to save page");
     pageId = pageRow.id;
@@ -145,7 +150,7 @@ export const saveBreakdown = async (
 
 export const getBreakdownByUrl = async (url: string): Promise<StoredBreakdown | null> => {
   if (!url) return null;
-  const db = await SQLite.openDatabaseAsync(DB_NAME);
+  const db = await getDb();
   
   const page = await db.getFirstAsync<any>(`SELECT * FROM pages WHERE url = ?`, [url]);
   if (!page) return null;
@@ -187,13 +192,14 @@ export const getBreakdownByUrl = async (url: string): Promise<StoredBreakdown | 
 
 export const hasBreakdownForUrl = async (url: string): Promise<boolean> => {
   if (!url) return false;
-  const db = await SQLite.openDatabaseAsync(DB_NAME);
+  const db = await getDb();
   const result = await db.getFirstAsync<{count: number}>(`SELECT COUNT(*) as count FROM pages WHERE url = ?`, [url]);
   return (result?.count || 0) > 0;
 };
 
 export const deleteBreakdownForUrl = async (url: string): Promise<void> => {
   if (!url) return;
-  const db = await SQLite.openDatabaseAsync(DB_NAME);
+  const db = await getDb();
   await db.runAsync(`DELETE FROM pages WHERE url = ?`, [url]); // cascades due to PRAGMA foreign_keys
 };
+
