@@ -181,6 +181,11 @@ export default function ReaderScreen() {
           logger.info(LogCategory.UI, `User scrolled significantly (${scrollY} vs ${lastAnalyzedScrollY.current}). Invalidating viewport cache.`);
           dispatch({ type: 'INVALIDATE_CACHE' });
         }
+      } else if (data.type === 'PAGE_TURN') {
+        if (state.hasCachedBreakdown) {
+          logger.info(LogCategory.UI, 'SPA page turn detected (DOM mutation). Invalidating cache.');
+          dispatch({ type: 'INVALIDATE_CACHE' });
+        }
       }
     } catch (e) {
       // Ignore parse errors from other messages
@@ -230,6 +235,25 @@ export default function ReaderScreen() {
                 window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SCROLL', scrollY: window.scrollY }));
               }
             });
+            
+            // SPA Page Turn tracking (DOM Mutation)
+            let lastMutationTime = 0;
+            const observer = new MutationObserver((mutations) => {
+              const now = Date.now();
+              if (now - lastMutationTime > 1500) {
+                let significant = false;
+                for (let m of mutations) {
+                  if (m.type === 'attributes' && (m.attributeName === 'src' || m.attributeName === 'style')) significant = true;
+                  if (m.addedNodes && m.addedNodes.length > 0) significant = true;
+                }
+                
+                if (significant) {
+                  lastMutationTime = now;
+                  window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'PAGE_TURN' }));
+                }
+              }
+            });
+            observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['src', 'style'] });
             
             true;
             `

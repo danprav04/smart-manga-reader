@@ -13,6 +13,7 @@ interface OverlayLayerProps {
 export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismiss, onReanalyze }) => {
   const { state } = useBreakdown();
   const [layout, setLayout] = useState({ width: 0, height: 0 });
+  const windowDimensions = Dimensions.get('window');
 
   if (!state.overlayVisible || !state.currentBreakdown) {
     return null;
@@ -47,24 +48,30 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
       <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.4)' }]} pointerEvents="none" />
 
       {/* Render Highlights */}
-      {layout.width > 0 && layout.height > 0 && textRegions.map((region, index) => {
+      {textRegions.map((region, index) => {
         let ymin = 0, xmin = 0, ymax = 0, xmax = 0;
         
         if (Array.isArray(region.boundingBox) && region.boundingBox.length >= 4) {
-          [ymin, xmin, ymax, xmax] = region.boundingBox;
+          [ymin, xmin, ymax, xmax] = region.boundingBox.map(Number);
         } else if (region.boundingBox && typeof region.boundingBox === 'object') {
-          // Fallback if AI returned an object instead of array
-          ymin = (region.boundingBox as any).ymin || 0;
-          xmin = (region.boundingBox as any).xmin || 0;
-          ymax = (region.boundingBox as any).ymax || 0;
-          xmax = (region.boundingBox as any).xmax || 0;
+          ymin = Number((region.boundingBox as any).ymin) || 0;
+          xmin = Number((region.boundingBox as any).xmin) || 0;
+          ymax = Number((region.boundingBox as any).ymax) || 0;
+          xmax = Number((region.boundingBox as any).xmax) || 0;
         }
         
-        // Convert normalized (0-1000) to pixel coordinates
-        const top = (ymin / 1000) * layout.height;
-        const left = (xmin / 1000) * layout.width;
-        const height = ((ymax - ymin) / 1000) * layout.height;
-        const width = ((xmax - xmin) / 1000) * layout.width;
+        const currentWidth = layout.width || windowDimensions.width;
+        const currentHeight = layout.height || windowDimensions.height;
+        
+        // Auto-detect if coordinates are 0-1 or 0-1000
+        const scale = (xmax > 1.5 || ymax > 1.5) ? 1000 : 1;
+        
+        const top = (ymin / scale) * currentHeight;
+        const left = (xmin / scale) * currentWidth;
+        const height = ((ymax - ymin) / scale) * currentHeight;
+        const width = ((xmax - xmin) / scale) * currentWidth;
+        
+        logger.debug(LogCategory.UI, `Rendering region ${index} at top:${top}, left:${left}, width:${width}, height:${height}`);
 
         return (
           <TouchableOpacity
