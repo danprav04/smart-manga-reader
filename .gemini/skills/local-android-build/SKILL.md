@@ -24,10 +24,13 @@ When creating a development build, it MUST be installable alongside the main app
 Run `npm run android:dev` in PowerShell. This runs Expo's prebuild and attempts to compile and install via ADB.
 - **ADB Port Collision Issue**: If the build fails at the very end with `protocol fault` or `start-server exited with non-zero code`, it is because WSL or another background service has locked port 5037. 
   **DO NOT RESTART THE COMPUTER.** 
-  The `android/` directory was already generated successfully. Instead, compile manually:
+  The `android/` directory was already generated successfully. Instead, compile manually and serve it via HTTP:
   1. `cd android`
   2. `.\gradlew.bat assembleDebug`
   3. The resulting APK is at `android/app/build/outputs/apk/debug/app-debug.apk`.
+  4. Serve the directory so it can be installed on the device over the local network without ADB:
+     `npx -y http-server -p 8002 android/app/build/outputs/apk/debug`
+  5. The user can then open a browser on their emulator (`http://10.0.2.2:8002`) or physical device (`http://<local-ip>:8002`) to download and install `app-debug.apk`.
 
 ### Scenario B: Building Production / Release (WSL)
 If the user requests a local production Android build (`eas build --local` or `gradlew assembleRelease`) and the host OS is Windows, switch to using WSL (Windows Subsystem for Linux) immediately to bypass the `ninja: error: manifest 'build.ninja' still dirty after 100 tries` C++ compilation bug.
