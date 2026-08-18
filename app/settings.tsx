@@ -99,13 +99,15 @@ export default function SettingsScreen() {
             onChangeText={(val) => updateSettings({ geminiModel: val })}
             placeholderTextColor={themeStyles.placeholderTextColor}
           />
-          <View style={styles.fallbackContainer}>
-            <Text style={[styles.fallbackTitle, themeStyles.textSecondary]}>Fallback Sequence:</Text>
-            <Text style={[styles.fallbackText, themeStyles.textSecondary]}>1. {settings.geminiModel || 'gemini-3.7-flash'}</Text>
-            <Text style={[styles.fallbackText, themeStyles.textSecondary]}>2. gemini-3.7-flash</Text>
-            <Text style={[styles.fallbackText, themeStyles.textSecondary]}>3. gemini-3.6-flash</Text>
-            <Text style={[styles.fallbackText, themeStyles.textSecondary]}>4. gemini-3.5-flash</Text>
-          </View>
+          <Text style={[styles.label, themeStyles.textSecondary]}>Fallback Sequence</Text>
+          <TextInput
+            style={[styles.input, themeStyles.input, { borderColor: themeStyles.borderColor, height: 80, textAlignVertical: 'top' }]}
+            value={settings.geminiFallbackSequence || ''}
+            onChangeText={(val) => updateSettings({ geminiFallbackSequence: val })}
+            multiline
+            placeholder="gemini-3.7-flash, gemini-3.6-flash..."
+            placeholderTextColor={themeStyles.placeholderTextColor}
+          />
         </View>
 
         <View style={[styles.section, themeStyles.section]}>
