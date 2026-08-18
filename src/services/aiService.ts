@@ -67,8 +67,8 @@ const analyzeWithGemini = async (base64Image: string, settings: Settings): Promi
 
   const defaultSequence = settings.geminiFallbackSequence 
     ? settings.geminiFallbackSequence.split(',').map(s => s.trim()).filter(Boolean)
-    : ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash'];
-  const modelsToTry = [settings.geminiModel || 'gemini-3.7-flash'];
+    : ['gemini-3.1-flash', 'gemini-3.5-flash'];
+  const modelsToTry = [settings.geminiModel || 'gemini-3.1-flash'];
   
   // Add the default sequence as fallbacks, removing duplicates
   for (const model of defaultSequence) {
@@ -114,7 +114,11 @@ const analyzeWithGemini = async (base64Image: string, settings: Settings): Promi
       const jsonString = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!jsonString) throw new Error(`Invalid response from Gemini model ${model}`);
 
-      return JSON.parse(cleanJsonString(jsonString)) as BreakdownResult;
+      try {
+        return JSON.parse(cleanJsonString(jsonString)) as BreakdownResult;
+      } catch (parseError: any) {
+        throw new Error(`AI returned invalid format: ${jsonString}`);
+      }
     } catch (error) {
       console.warn(`Failed with model ${model}, trying next...`, error);
       lastError = error instanceof Error ? error : new Error(String(error));

@@ -193,7 +193,7 @@ export default function SettingsScreen() {
             value={settings.geminiFallbackSequence || ''}
             onChangeText={(val) => updateSettings({ geminiFallbackSequence: val })}
             multiline
-            placeholder="gemini-3.7-flash, gemini-3.6-flash..."
+            placeholder="gemini-3.1-flash, gemini-3.5-flash..."
             placeholderTextColor={themeStyles.placeholderTextColor}
           />
         </View>
