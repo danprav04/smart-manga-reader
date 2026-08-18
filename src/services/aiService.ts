@@ -203,7 +203,6 @@ const analyzeWithOpenAI = async (base64Image: string, settings: Settings): Promi
         },
         body: JSON.stringify({
           model: modelToUse,
-          response_format: { type: 'json_object' },
           messages: [
             { role: 'system', content: getSystemPrompt(settings.japaneseLevel) },
             {
