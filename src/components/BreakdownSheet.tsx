@@ -205,7 +205,12 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
           ))}
         </View>
 
-        <View style={{ height: SNAP_TOP_COLLAPSED + 100 }} />
+        <Animated.View style={{ 
+          height: translateY.interpolate({
+            inputRange: [0, SCREEN_HEIGHT],
+            outputRange: [40, SCREEN_HEIGHT + 40]
+          }) 
+        }} />
       </ScrollView>
     </Animated.View>
   );
