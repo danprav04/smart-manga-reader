@@ -10,10 +10,9 @@ import { BlurView } from 'expo-blur';
 interface OverlayLayerProps {
   onRegionTap: (regionIndex: number) => void;
   onDismiss: () => void;
-  onReanalyze: () => void;
 }
 
-export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismiss, onReanalyze }) => {
+export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismiss }) => {
   const { state } = useBreakdown();
   const [layout, setLayout] = useState({ width: 0, height: 0 });
   const windowDimensions = Dimensions.get('window');
@@ -97,21 +96,7 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
         );
       })}
 
-      {/* Top Controls */}
-      <View style={[styles.controlsContainer, { top: Math.max(insets.top + 10, 20) }]}>
-        <TouchableOpacity activeOpacity={0.7} onPress={onDismiss}>
-          <BlurView intensity={50} tint="dark" style={styles.controlButton}>
-            <Ionicons name="close" size={18} color="#fff" />
-            <Text style={styles.controlText}>Dismiss</Text>
-          </BlurView>
-        </TouchableOpacity>
-        <TouchableOpacity activeOpacity={0.7} onPress={onReanalyze}>
-          <BlurView intensity={50} tint="dark" style={styles.controlButton}>
-            <Ionicons name="refresh" size={16} color="#fff" />
-            <Text style={styles.controlText}>Re-analyze</Text>
-          </BlurView>
-        </TouchableOpacity>
-      </View>
+      {/* Buttons moved to BreakdownSheet */}
     </View>
   );
 };
@@ -133,31 +118,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.4)',
     borderRadius: 4,
-  },
-  controlsContainer: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    zIndex: 10,
-  },
-  controlButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)', // Fallback for BlurView
-    gap: 6,
-    overflow: 'hidden',
-  },
-  controlText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: 0.3,
   },
 });

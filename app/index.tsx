@@ -277,9 +277,12 @@ export default function ReaderScreen() {
           <OverlayLayer 
             onRegionTap={handleRegionTap}
             onDismiss={() => dispatch({ type: 'DISMISS_OVERLAY' })}
+          />
+          <BreakdownSheet 
+            ref={sheetRef} 
+            onDismiss={() => dispatch({ type: 'DISMISS_OVERLAY' })}
             onReanalyze={handleReanalyze}
           />
-          <BreakdownSheet ref={sheetRef} />
         </GestureHandlerRootView>
       </Modal>
 

@@ -6,6 +6,7 @@ import {
 import { useBreakdown } from '../store/breakdownStore';
 import { FuriganaText } from './FuriganaText';
 import { logger, LogCategory } from '../utils/logger';
+import { Ionicons } from '@expo/vector-icons';
 
 export interface BreakdownSheetRef {
   scrollToRegion: (regionIndex: number) => void;
@@ -19,7 +20,12 @@ const SNAP_TOP_COLLAPSED = SCREEN_HEIGHT * 0.88;  // 12% visible
 const SNAP_TOP_HALF = SCREEN_HEIGHT * 0.50;        // 50% visible
 const SNAP_TOP_EXPANDED = SCREEN_HEIGHT * 0.10;    // 90% visible
 
-export const BreakdownSheet = forwardRef<BreakdownSheetRef, {}>((props, ref) => {
+interface BreakdownSheetProps {
+  onDismiss: () => void;
+  onReanalyze: () => void;
+}
+
+export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>(({ onDismiss, onReanalyze }, ref) => {
   const { state } = useBreakdown();
   const scrollViewRef = useRef<ScrollView>(null);
   const regionLayouts = useRef<{ [key: number]: number }>({});
@@ -122,6 +128,18 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, {}>((props, ref) => 
         <View style={styles.handle} />
       </View>
 
+      {/* Header Controls */}
+      <View style={styles.controlsContainer}>
+        <TouchableOpacity activeOpacity={0.7} style={styles.controlButton} onPress={onDismiss}>
+          <Ionicons name="close" size={18} color="#fff" />
+          <Text style={styles.controlText}>Dismiss</Text>
+        </TouchableOpacity>
+        <TouchableOpacity activeOpacity={0.7} style={styles.controlButton} onPress={onReanalyze}>
+          <Ionicons name="refresh" size={16} color="#fff" />
+          <Text style={styles.controlText}>Re-analyze</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Content */}
       <ScrollView 
         ref={scrollViewRef} 
@@ -220,6 +238,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 2,
     opacity: 0.6,
+  },
+  controlsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: '#3a3a5e',
+    marginBottom: 8,
+  },
+  controlButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 6,
+  },
+  controlText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   contentContainer: {
     flex: 1,
