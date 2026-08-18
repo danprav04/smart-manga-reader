@@ -4,6 +4,7 @@ import { WebView } from 'react-native-webview';
 import ViewShot from 'react-native-view-shot';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { useSettings } from '../src/store/settingsStore';
@@ -262,8 +263,8 @@ export default function ReaderScreen() {
         />
       </ViewShot>
 
-      {/* Overlay rendered in a Modal — guarantees a separate Android Window
-          that paints above the WebView's SurfaceView. */}
+      {/* Overlay + BreakdownSheet rendered in a Modal — guarantees a separate
+          Android Window that paints above the WebView's SurfaceView. */}
       <Modal
         visible={state.overlayVisible}
         transparent={true}
@@ -271,11 +272,14 @@ export default function ReaderScreen() {
         statusBarTranslucent={true}
         onRequestClose={() => dispatch({ type: 'DISMISS_OVERLAY' })}
       >
-        <OverlayLayer 
-          onRegionTap={handleRegionTap}
-          onDismiss={() => dispatch({ type: 'DISMISS_OVERLAY' })}
-          onReanalyze={handleReanalyze}
-        />
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <OverlayLayer 
+            onRegionTap={handleRegionTap}
+            onDismiss={() => dispatch({ type: 'DISMISS_OVERLAY' })}
+            onReanalyze={handleReanalyze}
+          />
+          <BreakdownSheet ref={sheetRef} />
+        </GestureHandlerRootView>
       </Modal>
 
       {/* Page Loading Indicator */}
@@ -303,7 +307,7 @@ export default function ReaderScreen() {
         />
       )}
 
-      <BreakdownSheet ref={sheetRef} />
+
     </SafeAreaView>
   );
 }
