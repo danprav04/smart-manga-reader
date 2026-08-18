@@ -83,8 +83,7 @@ export default function ReaderScreen() {
             const nightStyle = document.createElement('style');
             nightStyle.id = 'night-reader-style';
             nightStyle.innerHTML = \`
-              html { filter: invert(1) hue-rotate(180deg); background-color: #fff !important; }
-              img, canvas, video { filter: invert(1) hue-rotate(180deg) brightness(0.65) contrast(1.1); }
+              html { filter: sepia(0.5) brightness(0.6) hue-rotate(-10deg) !important; background-color: #111 !important; }
             \`;
             document.head.appendChild(nightStyle);
           }
@@ -240,8 +239,7 @@ export default function ReaderScreen() {
               const nightStyle = document.createElement('style');
               nightStyle.id = 'night-reader-style';
               nightStyle.innerHTML = \`
-                html { filter: invert(1) hue-rotate(180deg); background-color: #fff !important; }
-                img, canvas, video { filter: invert(1) hue-rotate(180deg) brightness(0.65) contrast(1.1); }
+                html { filter: sepia(0.5) brightness(0.6) hue-rotate(-10deg) !important; background-color: #111 !important; }
               \`;
               document.head.appendChild(nightStyle);
             ` : ''}
