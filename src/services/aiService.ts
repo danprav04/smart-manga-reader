@@ -37,18 +37,45 @@ Your output must be a JSON object with this structure:
 
 const cleanJsonString = (str: string) => {
   let cleaned = str.trim();
-  if (cleaned.startsWith('\`\`\`json')) {
-    cleaned = cleaned.replace(/^\`\`\`json\n?/, '');
+  if (cleaned.startsWith('```json')) {
+    cleaned = cleaned.replace(/^```json\n?/, '');
   }
-  if (cleaned.startsWith('\`\`\`')) {
-    cleaned = cleaned.replace(/^\`\`\`\n?/, '');
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```\n?/, '');
   }
-  if (cleaned.endsWith('\`\`\`')) {
-    cleaned = cleaned.replace(/\n?\`\`\`$/, '');
+  if (cleaned.endsWith('```')) {
+    cleaned = cleaned.replace(/\n?```$/, '');
   }
+  
+  // Extract just the JSON object to handle any trailing text outside the valid JSON
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+  }
+  
   return cleaned.trim();
 };
 
+
+const parseAndSalvageJson = (jsonString: string): BreakdownResult => {
+  const cleaned = cleanJsonString(jsonString);
+  try {
+    return JSON.parse(cleaned) as BreakdownResult;
+  } catch (parseError: any) {
+    // Try to salvage the JSON if the model appended extra invalid text after contextNotes
+    try {
+      const match = cleaned.match(/(.*"contextNotes"\s*:\s*"(?:[^"\\]|\\.)*")/s);
+      if (match) {
+        const salvaged = match[1] + '\n}';
+        return JSON.parse(salvaged) as BreakdownResult;
+      }
+    } catch (e) {
+      // If salvage fails, fall through to throwing the original error
+    }
+    throw new Error(`AI returned invalid format: ${jsonString}`);
+  }
+};
 
 export const analyzeScreenshot = async (
   base64Image: string,
@@ -114,11 +141,7 @@ const analyzeWithGemini = async (base64Image: string, settings: Settings): Promi
       const jsonString = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!jsonString) throw new Error(`Invalid response from Gemini model ${model}`);
 
-      try {
-        return JSON.parse(cleanJsonString(jsonString)) as BreakdownResult;
-      } catch (parseError: any) {
-        throw new Error(`AI returned invalid format: ${jsonString}`);
-      }
+      return parseAndSalvageJson(jsonString);
     } catch (error) {
       console.warn(`Failed with model ${model}, trying next...`, error);
       lastError = error instanceof Error ? error : new Error(String(error));
@@ -169,5 +192,5 @@ const analyzeWithOpenAI = async (base64Image: string, settings: Settings): Promi
   const jsonString = data.choices?.[0]?.message?.content;
   if (!jsonString) throw new Error('Invalid response from OpenAI API');
 
-  return JSON.parse(cleanJsonString(jsonString)) as BreakdownResult;
+  return parseAndSalvageJson(jsonString);
 };
