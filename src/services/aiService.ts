@@ -221,9 +221,29 @@ const analyzeWithOpenAI = async (base64Image: string, settings: Settings): Promi
       });
 
       if (!response.ok) {
-        const err = await response.text();
+        const errText = await response.text();
+        let errorMessage = errText;
+        try {
+          const parsed = JSON.parse(errText);
+          if (parsed.error && parsed.error.message) {
+            errorMessage = parsed.error.message;
+          } else if (parsed.detail) {
+            errorMessage = typeof parsed.detail === 'string' ? parsed.detail : JSON.stringify(parsed.detail);
+            try {
+              const detailParsed = JSON.parse(errorMessage);
+              if (detailParsed.error && detailParsed.error.message) {
+                errorMessage = detailParsed.error.message;
+              }
+            } catch (e) {
+              // detail is not json, keep as is
+            }
+          }
+        } catch (e) {
+          // not json, keep original text
+        }
+        
         logger.warn(LogCategory.AI, `OpenAI API error with model ${modelToUse}: status ${response.status}`);
-        throw new Error(`OpenAI API error with model ${modelToUse}: ${err}`);
+        throw new Error(`OpenAI API error with model ${modelToUse}: ${errorMessage}`);
       }
 
       const data = await response.json();
