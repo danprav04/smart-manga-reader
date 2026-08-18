@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
 import { BreakdownResult, StoredBreakdown } from '../types/breakdown';
+import { logger, LogCategory } from '../utils/logger';
 
 interface BreakdownState {
   currentBreakdown: BreakdownResult | StoredBreakdown | null;
@@ -16,6 +17,7 @@ type Action =
   | { type: 'ANALYSIS_ERROR'; payload: string }
   | { type: 'LOAD_CACHED'; payload: StoredBreakdown }
   | { type: 'DISMISS_OVERLAY' }
+  | { type: 'INVALIDATE_CACHE' }
   | { type: 'SET_URL'; payload: { url: string; hasCache: boolean } };
 
 const initialState: BreakdownState = {
@@ -28,10 +30,13 @@ const initialState: BreakdownState = {
 };
 
 const breakdownReducer = (state: BreakdownState, action: Action): BreakdownState => {
+  logger.debug(LogCategory.STORE, `Dispatching action: ${action.type}`);
   switch (action.type) {
     case 'START_ANALYSIS':
+      logger.info(LogCategory.STORE, 'State -> START_ANALYSIS');
       return { ...state, isAnalyzing: true };
     case 'ANALYSIS_COMPLETE':
+      logger.info(LogCategory.STORE, 'State -> ANALYSIS_COMPLETE');
       return {
         ...state,
         isAnalyzing: false,
@@ -41,8 +46,10 @@ const breakdownReducer = (state: BreakdownState, action: Action): BreakdownState
         hasCachedBreakdown: true,
       };
     case 'ANALYSIS_ERROR':
+      logger.error(LogCategory.STORE, `State -> ANALYSIS_ERROR: ${action.payload}`);
       return { ...state, isAnalyzing: false };
     case 'LOAD_CACHED':
+      logger.info(LogCategory.STORE, 'State -> LOAD_CACHED');
       return {
         ...state,
         currentBreakdown: action.payload,
@@ -50,9 +57,14 @@ const breakdownReducer = (state: BreakdownState, action: Action): BreakdownState
         overlayVisible: true,
       };
     case 'DISMISS_OVERLAY':
+      logger.info(LogCategory.STORE, 'State -> DISMISS_OVERLAY');
       return { ...state, overlayVisible: false };
+    case 'INVALIDATE_CACHE':
+      logger.info(LogCategory.STORE, 'State -> INVALIDATE_CACHE (User scrolled, disabling current viewport cache)');
+      return { ...state, hasCachedBreakdown: false };
     case 'SET_URL':
       const urlChanged = state.currentUrl !== action.payload.url;
+      logger.info(LogCategory.STORE, `State -> SET_URL (changed: ${urlChanged}, hasCache: ${action.payload.hasCache})`);
       return {
         ...state,
         currentUrl: action.payload.url,

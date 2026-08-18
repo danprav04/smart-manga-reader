@@ -1,5 +1,6 @@
 import { BreakdownResult, Settings } from '../types/breakdown';
 import { getGeminiApiKey, getOpenAIApiKey } from '../store/settingsStore';
+import { logger, LogCategory } from '../utils/logger';
 
 const getSystemPrompt = (japaneseLevel: string) => `
 You are an expert Japanese translator and language tutor.
@@ -81,10 +82,21 @@ export const analyzeScreenshot = async (
   base64Image: string,
   settings: Settings
 ): Promise<BreakdownResult> => {
-  if (settings.aiProvider === 'gemini') {
-    return analyzeWithGemini(base64Image, settings);
-  } else {
-    return analyzeWithOpenAI(base64Image, settings);
+  logger.info(LogCategory.AI, `Starting analysis. Provider: ${settings.aiProvider}, Base64 size: ${base64Image.length} chars`);
+  try {
+    const startTime = Date.now();
+    let result: BreakdownResult;
+    if (settings.aiProvider === 'gemini') {
+      result = await analyzeWithGemini(base64Image, settings);
+    } else {
+      result = await analyzeWithOpenAI(base64Image, settings);
+    }
+    const elapsed = Date.now() - startTime;
+    logger.info(LogCategory.AI, `Analysis completed successfully in ${elapsed}ms. Found ${result.textRegions?.length || 0} text regions.`);
+    return result;
+  } catch (e: any) {
+    logger.error(LogCategory.AI, `Analysis failed: ${e.message}`, e);
+    throw e;
   }
 };
 
@@ -106,47 +118,53 @@ const analyzeWithGemini = async (base64Image: string, settings: Settings): Promi
 
   let lastError: Error | null = null;
 
-  for (const model of modelsToTry) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    for (const model of modelsToTry) {
+      logger.info(LogCategory.AI, `Trying Gemini model: ${model}`);
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: {
-            parts: [{ text: getSystemPrompt(settings.japaneseLevel) }]
-          },
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: 'Analyze this manga page.' },
-                { inline_data: { mime_type: 'image/jpeg', data: base64Image } }
-              ]
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            system_instruction: {
+              parts: [{ text: getSystemPrompt(settings.japaneseLevel) }]
+            },
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { text: 'Analyze this manga page.' },
+                  { inline_data: { mime_type: 'image/jpeg', data: base64Image } }
+                ]
+              }
+            ],
+            generationConfig: {
+              response_mime_type: 'application/json',
             }
-          ],
-          generationConfig: {
-            response_mime_type: 'application/json',
-          }
-        })
-      });
+          })
+        });
 
-      if (!response.ok) {
-        const err = await response.text();
-        throw new Error(`Gemini API error with model ${model}: ${err}`);
+        if (!response.ok) {
+          const err = await response.text();
+          logger.warn(LogCategory.AI, `Gemini API error with model ${model}: status ${response.status}`);
+          throw new Error(`Gemini API error with model ${model}: ${err}`);
+        }
+
+        const data = await response.json();
+        const jsonString = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!jsonString) {
+          logger.warn(LogCategory.AI, `Invalid response format from Gemini model ${model}`);
+          throw new Error(`Invalid response from Gemini model ${model}`);
+        }
+
+        logger.debug(LogCategory.AI, `Successfully received response from ${model}, parsing JSON...`);
+        return parseAndSalvageJson(jsonString);
+      } catch (error) {
+        logger.warn(LogCategory.AI, `Failed with model ${model}, trying next...`, error);
+        lastError = error instanceof Error ? error : new Error(String(error));
       }
-
-      const data = await response.json();
-      const jsonString = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!jsonString) throw new Error(`Invalid response from Gemini model ${model}`);
-
-      return parseAndSalvageJson(jsonString);
-    } catch (error) {
-      console.warn(`Failed with model ${model}, trying next...`, error);
-      lastError = error instanceof Error ? error : new Error(String(error));
     }
-  }
 
   throw lastError || new Error('All fallback models failed');
 };
@@ -158,6 +176,9 @@ const analyzeWithOpenAI = async (base64Image: string, settings: Settings): Promi
   const baseUrl = settings.openaiBaseUrl || 'https://api.openai.com/v1';
   const url = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
 
+  const modelToUse = settings.openaiModel || 'gpt-4o';
+  logger.info(LogCategory.AI, `Using OpenAI API with model: ${modelToUse}`);
+  
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -165,7 +186,7 @@ const analyzeWithOpenAI = async (base64Image: string, settings: Settings): Promi
       'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: settings.openaiModel || 'gpt-4o',
+      model: modelToUse,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: getSystemPrompt(settings.japaneseLevel) },
@@ -185,12 +206,17 @@ const analyzeWithOpenAI = async (base64Image: string, settings: Settings): Promi
 
   if (!response.ok) {
     const err = await response.text();
+    logger.warn(LogCategory.AI, `OpenAI API error: status ${response.status}`);
     throw new Error(`OpenAI API error: ${err}`);
   }
 
   const data = await response.json();
   const jsonString = data.choices?.[0]?.message?.content;
-  if (!jsonString) throw new Error('Invalid response from OpenAI API');
+  if (!jsonString) {
+    logger.warn(LogCategory.AI, `Invalid response format from OpenAI API`);
+    throw new Error('Invalid response from OpenAI API');
+  }
 
+  logger.debug(LogCategory.AI, `Successfully received response from OpenAI, parsing JSON...`);
   return parseAndSalvageJson(jsonString);
 };

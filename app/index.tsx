@@ -11,6 +11,7 @@ import { readerConfig } from '../src/config/readerConfig';
 import { captureWebView } from '../src/services/screenshotService';
 import { analyzeScreenshot } from '../src/services/aiService';
 import { hasBreakdownForUrl, getBreakdownByUrl, saveBreakdown } from '../src/services/databaseService';
+import { logger, LogCategory } from '../src/utils/logger';
 
 import { FloatingActionButton } from '../src/components/FloatingActionButton';
 import { OverlayLayer } from '../src/components/OverlayLayer';
@@ -26,10 +27,12 @@ export default function ReaderScreen() {
   const viewShotRef = useRef<ViewShot>(null);
   const sheetRef = useRef<BreakdownSheetRef>(null);
   const lastProcessedUrl = useRef<string | null>(null);
+  const lastAnalyzedScrollY = useRef<number>(0);
 
   const [currentUrl, setCurrentUrl] = useState(settings.readerBaseUrl || readerConfig.defaultUrl);
   const [canGoBack, setCanGoBack] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(false);
+  const [currentScrollY, setCurrentScrollY] = useState(0);
 
   React.useEffect(() => {
     const onBackPress = () => {
@@ -59,9 +62,13 @@ export default function ReaderScreen() {
     // Check if we have a cached breakdown for this new URL
     try {
       const hasCache = await hasBreakdownForUrl(url);
+      logger.info(LogCategory.UI, `Navigation state changed to ${url}. Cache exists: ${hasCache}`);
       dispatch({ type: 'SET_URL', payload: { url, hasCache } });
+      // Reset scroll tracking for new URL
+      lastAnalyzedScrollY.current = 0;
+      setCurrentScrollY(0);
     } catch (e) {
-      console.error("Failed to check cache for url", e);
+      logger.error(LogCategory.UI, "Failed to check cache for url", e);
     }
   };
 
@@ -93,21 +100,26 @@ export default function ReaderScreen() {
   const performAnalysis = async (urlToAnalyze: string, reanalyze = false) => {
     if (state.isAnalyzing) return;
     
+    logger.info(LogCategory.UI, `performAnalysis called for ${urlToAnalyze}. Reanalyze: ${reanalyze}, HasCache: ${state.hasCachedBreakdown}`);
+
     if (!reanalyze && state.hasCachedBreakdown) {
       // Load from cache
       try {
         const cached = await getBreakdownByUrl(urlToAnalyze);
         if (cached) {
+          logger.info(LogCategory.UI, `Loaded cached breakdown for ${urlToAnalyze}`);
           dispatch({ type: 'LOAD_CACHED', payload: cached });
+          lastAnalyzedScrollY.current = currentScrollY; // Assume we loaded it for current view
           return;
         }
       } catch (e) {
-        console.error("Failed to load cached breakdown", e);
+        logger.error(LogCategory.UI, "Failed to load cached breakdown", e);
       }
     }
 
     // Capture and analyze
     try {
+      logger.info(LogCategory.UI, `Starting fresh AI analysis...`);
       dispatch({ type: 'START_ANALYSIS' });
       
       const { uri, base64 } = await captureWebView(viewShotRef.current);
@@ -117,10 +129,12 @@ export default function ReaderScreen() {
       // Save to SQLite
       const domain = new URL(urlToAnalyze).hostname;
       await saveBreakdown(urlToAnalyze, domain, result, uri);
+      logger.info(LogCategory.UI, `Analysis saved to database.`);
       
+      lastAnalyzedScrollY.current = currentScrollY;
       dispatch({ type: 'ANALYSIS_COMPLETE', payload: { result, screenshotUri: uri } });
     } catch (e: any) {
-      console.error("Analysis failed:", e);
+      logger.error(LogCategory.UI, "Analysis failed", e);
       Alert.alert("Analysis Failed", e.message || "Something went wrong.");
       dispatch({ type: 'ANALYSIS_ERROR', payload: e.message });
     }
@@ -131,14 +145,35 @@ export default function ReaderScreen() {
   };
 
   const handleReanalyze = () => {
+    logger.info(LogCategory.UI, `User requested re-analysis`);
     performAnalysis(currentUrl, true);
   };
 
   const handleRegionTap = (regionIndex: number) => {
+    logger.debug(LogCategory.UI, `Region ${regionIndex} tapped`);
     sheetRef.current?.expandToHalf();
     setTimeout(() => {
       sheetRef.current?.scrollToRegion(regionIndex);
     }, 100); // small delay to allow expansion
+  };
+
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'SCROLL') {
+        const scrollY = data.scrollY;
+        setCurrentScrollY(scrollY);
+        
+        // If we have a cached breakdown, but the user scrolled more than 300px from the last analyzed position,
+        // we invalidate the cache so tapping FAB will trigger a fresh analysis.
+        if (state.hasCachedBreakdown && Math.abs(scrollY - lastAnalyzedScrollY.current) > 300) {
+          logger.info(LogCategory.UI, `User scrolled significantly (${scrollY} vs ${lastAnalyzedScrollY.current}). Invalidating viewport cache.`);
+          dispatch({ type: 'INVALIDATE_CACHE' });
+        }
+      }
+    } catch (e) {
+      // Ignore parse errors from other messages
+    }
   };
 
   return (
@@ -156,6 +191,7 @@ export default function ReaderScreen() {
           onLoadStart={() => setIsPageLoading(true)}
           onLoadEnd={() => setIsPageLoading(false)}
           {...readerConfig.webViewProps}
+          onMessage={handleWebViewMessage}
           style={styles.webview}
           injectedJavaScript={
             `
@@ -173,6 +209,17 @@ export default function ReaderScreen() {
               \`;
               document.head.appendChild(nightStyle);
             ` : ''}
+            
+            // Scroll tracking
+            let lastScrollTime = 0;
+            window.addEventListener('scroll', () => {
+              const now = Date.now();
+              if (now - lastScrollTime > 500) {
+                lastScrollTime = now;
+                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SCROLL', scrollY: window.scrollY }));
+              }
+            });
+            
             true;
             `
           }
