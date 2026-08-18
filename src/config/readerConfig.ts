@@ -1,7 +1,7 @@
 export const readerConfig = {
   defaultUrl: 'https://www.cmoa.jp/bib/speedreader/?cid=0000229254_jp_0001&u0=0',
-  // Mimic modern Chrome Mobile to avoid "unsupported browser" walls
-  userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.43 Mobile Safari/537.36',
+  // Mimic modern iOS Safari (iPhone 15, iOS 17) to bypass strict browser checks
+  userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
   
   webViewProps: {
     sharedCookiesEnabled: true,
