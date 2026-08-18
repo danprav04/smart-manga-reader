@@ -162,9 +162,10 @@ export default function ReaderScreen() {
   };
 
   const handleRegionTap = (regionIndex: number) => {
-    logger.debug(LogCategory.UI, `Region ${regionIndex} tapped`);
+    logger.debug(LogCategory.UI, `Region ${regionIndex} tapped. sheetRef.current: ${sheetRef.current ? 'EXISTS' : 'NULL'}`);
     sheetRef.current?.expandToHalf();
     setTimeout(() => {
+      logger.debug(LogCategory.UI, `scrollToRegion(${regionIndex}) called. sheetRef.current: ${sheetRef.current ? 'EXISTS' : 'NULL'}`);
       sheetRef.current?.scrollToRegion(regionIndex);
     }, 100); // small delay to allow expansion
   };

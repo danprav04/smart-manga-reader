@@ -1,31 +1,101 @@
-import React, { useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import BottomSheet from '@gorhom/bottom-sheet';
+import React, { useRef, forwardRef, useImperativeHandle, useState, useEffect, useCallback } from 'react';
+import { 
+  View, Text, StyleSheet, ScrollView, 
+  Animated, PanResponder, Dimensions, TouchableOpacity 
+} from 'react-native';
 import { useBreakdown } from '../store/breakdownStore';
 import { FuriganaText } from './FuriganaText';
+import { logger, LogCategory } from '../utils/logger';
 
 export interface BreakdownSheetRef {
   scrollToRegion: (regionIndex: number) => void;
   expandToHalf: () => void;
 }
 
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+
+// Snap positions as fractions of screen height (from top)
+const SNAP_TOP_COLLAPSED = SCREEN_HEIGHT * 0.88;  // 12% visible
+const SNAP_TOP_HALF = SCREEN_HEIGHT * 0.50;        // 50% visible
+const SNAP_TOP_EXPANDED = SCREEN_HEIGHT * 0.10;    // 90% visible
+
 export const BreakdownSheet = forwardRef<BreakdownSheetRef, {}>((props, ref) => {
   const { state } = useBreakdown();
-  const bottomSheetRef = useRef<BottomSheet>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const regionLayouts = useRef<{ [key: number]: number }>({});
+  const translateY = useRef(new Animated.Value(SNAP_TOP_COLLAPSED)).current;
+  const currentSnap = useRef(SNAP_TOP_COLLAPSED);
 
-  const snapPoints = useMemo(() => ['12%', '50%', '90%'], []);
+  // Reset position when overlay becomes visible
+  useEffect(() => {
+    if (state.overlayVisible) {
+      translateY.setValue(SNAP_TOP_COLLAPSED);
+      currentSnap.current = SNAP_TOP_COLLAPSED;
+    }
+  }, [state.overlayVisible]);
+
+  const snapTo = useCallback((toValue: number) => {
+    currentSnap.current = toValue;
+    Animated.spring(translateY, {
+      toValue,
+      damping: 25,
+      stiffness: 200,
+      mass: 0.8,
+      useNativeDriver: false,
+    }).start();
+  }, [translateY]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only capture vertical drags on the handle area
+        return Math.abs(gestureState.dy) > 5;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const newY = currentSnap.current + gestureState.dy;
+        // Clamp between expanded and collapsed
+        const clamped = Math.max(SNAP_TOP_EXPANDED, Math.min(SNAP_TOP_COLLAPSED, newY));
+        translateY.setValue(clamped);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const currentY = currentSnap.current + gestureState.dy;
+        const velocity = gestureState.vy;
+
+        // Determine which snap point to go to based on position and velocity
+        let target: number;
+        if (velocity > 0.5) {
+          // Swiping down
+          target = currentY < SNAP_TOP_HALF ? SNAP_TOP_HALF : SNAP_TOP_COLLAPSED;
+        } else if (velocity < -0.5) {
+          // Swiping up
+          target = currentY > SNAP_TOP_HALF ? SNAP_TOP_HALF : SNAP_TOP_EXPANDED;
+        } else {
+          // Choose nearest snap point
+          const distances = [
+            { snap: SNAP_TOP_COLLAPSED, dist: Math.abs(currentY - SNAP_TOP_COLLAPSED) },
+            { snap: SNAP_TOP_HALF, dist: Math.abs(currentY - SNAP_TOP_HALF) },
+            { snap: SNAP_TOP_EXPANDED, dist: Math.abs(currentY - SNAP_TOP_EXPANDED) },
+          ];
+          distances.sort((a, b) => a.dist - b.dist);
+          target = distances[0].snap;
+        }
+        snapTo(target);
+      },
+    })
+  ).current;
 
   useImperativeHandle(ref, () => ({
     scrollToRegion: (regionIndex: number) => {
+      logger.debug(LogCategory.UI, `BreakdownSheet.scrollToRegion(${regionIndex}) called. yPos: ${regionLayouts.current[regionIndex]}`);
       const yPos = regionLayouts.current[regionIndex];
       if (yPos !== undefined && scrollViewRef.current) {
         scrollViewRef.current.scrollTo({ y: yPos, animated: true });
       }
     },
     expandToHalf: () => {
-      bottomSheetRef.current?.snapToIndex(1);
+      logger.debug(LogCategory.UI, `BreakdownSheet.expandToHalf() called`);
+      snapTo(SNAP_TOP_HALF);
     }
   }));
 
@@ -41,16 +111,24 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, {}>((props, ref) => 
   } = state.currentBreakdown;
 
   return (
-    <BottomSheet
-      ref={bottomSheetRef}
-      index={0}
-      snapPoints={snapPoints}
-      backgroundStyle={styles.background}
-      handleIndicatorStyle={styles.indicator}
-      style={{ zIndex: 101, elevation: 11 }}
+    <Animated.View
+      style={[
+        styles.sheetContainer,
+        { transform: [{ translateY }] },
+      ]}
     >
-      <ScrollView ref={scrollViewRef} style={styles.contentContainer}>
-        
+      {/* Drag Handle */}
+      <View {...panResponder.panHandlers} style={styles.handleContainer}>
+        <View style={styles.handle} />
+      </View>
+
+      {/* Content */}
+      <ScrollView 
+        ref={scrollViewRef} 
+        style={styles.contentContainer}
+        showsVerticalScrollIndicator={true}
+        bounces={false}
+      >
         {/* Full Translation Section */}
         {fullTranslation && (
           <View style={styles.section}>
@@ -111,16 +189,37 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, {}>((props, ref) => 
 
         <View style={{ height: 100 }} />
       </ScrollView>
-    </BottomSheet>
+    </Animated.View>
   );
 });
 
 const styles = StyleSheet.create({
-  background: {
+  sheetContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: SCREEN_HEIGHT,
     backgroundColor: '#1a1a2e',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    zIndex: 101,
+    elevation: 11,
+    // Shadow for iOS
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
-  indicator: {
+  handleContainer: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  handle: {
+    width: 40,
+    height: 4,
     backgroundColor: '#fff',
+    borderRadius: 2,
+    opacity: 0.6,
   },
   contentContainer: {
     flex: 1,
