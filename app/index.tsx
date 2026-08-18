@@ -208,7 +208,7 @@ export default function ReaderScreen() {
           onLoadEnd={() => setIsPageLoading(false)}
           {...readerConfig.webViewProps}
           onMessage={handleWebViewMessage}
-          style={[styles.webview, state.overlayVisible && { height: 0, flex: 0, overflow: 'hidden' }]}
+          style={styles.webview}
           injectedJavaScript={
             `
             ${readerConfig.injectedCSS ? `
@@ -259,14 +259,17 @@ export default function ReaderScreen() {
             `
           }
         />
-        
-        {/* Renders over the WebView when active (placed inside ViewShot to guarantee correct Android Z-order) */}
-        <OverlayLayer 
-          onRegionTap={handleRegionTap}
-          onDismiss={() => dispatch({ type: 'DISMISS_OVERLAY' })}
-          onReanalyze={handleReanalyze}
-        />
       </ViewShot>
+
+      {/* Overlay - MUST be outside ViewShot at SafeAreaView level.
+          Android WebView uses a SurfaceView that always paints over siblings
+          within the same parent, but views in a different branch of the tree
+          (like this, and the settings gear) render on top correctly. */}
+      <OverlayLayer 
+        onRegionTap={handleRegionTap}
+        onDismiss={() => dispatch({ type: 'DISMISS_OVERLAY' })}
+        onReanalyze={handleReanalyze}
+      />
 
       {/* Page Loading Indicator */}
       {isPageLoading && (
