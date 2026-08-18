@@ -52,11 +52,12 @@ const breakdownReducer = (state: BreakdownState, action: Action): BreakdownState
     case 'DISMISS_OVERLAY':
       return { ...state, overlayVisible: false };
     case 'SET_URL':
+      const urlChanged = state.currentUrl !== action.payload.url;
       return {
         ...state,
         currentUrl: action.payload.url,
         hasCachedBreakdown: action.payload.hasCache,
-        overlayVisible: false, // dismiss overlay on navigation
+        overlayVisible: urlChanged ? false : state.overlayVisible,
       };
     default:
       return state;

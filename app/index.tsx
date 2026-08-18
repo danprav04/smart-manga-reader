@@ -25,6 +25,7 @@ export default function ReaderScreen() {
   const webViewRef = useRef<WebView>(null);
   const viewShotRef = useRef<ViewShot>(null);
   const sheetRef = useRef<BreakdownSheetRef>(null);
+  const lastProcessedUrl = useRef<string | null>(null);
 
   const [currentUrl, setCurrentUrl] = useState(settings.readerBaseUrl || readerConfig.defaultUrl);
   const [canGoBack, setCanGoBack] = useState(false);
@@ -50,6 +51,10 @@ export default function ReaderScreen() {
     const url = navState.url;
     setCurrentUrl(url);
     setCanGoBack(navState.canGoBack);
+    
+    // Don't re-dispatch SET_URL if the URL hasn't changed
+    if (url === lastProcessedUrl.current) return;
+    lastProcessedUrl.current = url;
     
     // Check if we have a cached breakdown for this new URL
     try {
