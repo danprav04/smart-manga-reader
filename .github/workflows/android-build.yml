@@ -27,9 +27,8 @@ jobs:
       - name: Install dependencies
         run: npm install
         
-      # If your 'android' folder is not committed to git, uncomment the line below to generate it on the fly:
-      # - name: Expo Prebuild
-      #   run: npx expo prebuild --platform android --clean
+      - name: Expo Prebuild
+        run: npx expo prebuild --platform android --clean
         
       - name: Build Android Release APK
         run: |
