@@ -12,6 +12,7 @@ interface SettingsContextType {
 const defaultSettings: Settings = {
   aiProvider: 'gemini',
   geminiModel: 'gemini-3.7-flash',
+  geminiFallbackSequence: 'gemini-3.7-flash, gemini-3.6-flash, gemini-3.5-flash',
   openaiBaseUrl: '',
   openaiModel: '',
   readerBaseUrl: 'https://www.cmoa.jp',

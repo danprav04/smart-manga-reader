@@ -28,6 +28,7 @@ export default function ReaderScreen() {
 
   const [currentUrl, setCurrentUrl] = useState(settings.readerBaseUrl || readerConfig.defaultUrl);
   const [canGoBack, setCanGoBack] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(false);
 
   React.useEffect(() => {
     const onBackPress = () => {
@@ -114,6 +115,8 @@ export default function ReaderScreen() {
           source={{ uri: settings.readerBaseUrl || readerConfig.defaultUrl }}
           userAgent={readerConfig.userAgent}
           onNavigationStateChange={handleNavigationStateChange}
+          onLoadStart={() => setIsPageLoading(true)}
+          onLoadEnd={() => setIsPageLoading(false)}
           {...readerConfig.webViewProps}
           style={styles.webview}
           injectedJavaScript={
@@ -128,6 +131,13 @@ export default function ReaderScreen() {
           }
         />
       </ViewShot>
+
+      {/* Page Loading Indicator */}
+      {isPageLoading && (
+        <View style={[styles.loadingIndicator, { top: Math.max(insets.top, 16) + 16 }]} pointerEvents="none">
+          <ActivityIndicator color="#fff" size="small" />
+        </View>
+      )}
 
       {/* Settings Button */}
       <TouchableOpacity 
@@ -180,5 +190,16 @@ const styles = StyleSheet.create({
   },
   settingsIcon: {
     fontSize: 22,
+  },
+  loadingIndicator: {
+    position: 'absolute',
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 40,
   }
 });

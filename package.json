@@ -4,9 +4,11 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo/ui": "~57.0.11",
+    "@expo/vector-icons": "^15.0.2",
     "@gorhom/bottom-sheet": "^5.2.14",
     "@react-native-async-storage/async-storage": "^3.1.1",
     "expo": "~57.0.14",
+    "expo-blur": "~57.0.2",
     "expo-constants": "~57.0.12",
     "expo-dev-client": "~57.0.13",
     "expo-device": "~57.0.1",
