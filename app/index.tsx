@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, Alert, TouchableOpacity, Text as RNText, BackHandler } from 'react-native';
+import { View, StyleSheet, Alert, TouchableOpacity, Text as RNText, BackHandler, ActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
 import ViewShot from 'react-native-view-shot';
 import { useRouter } from 'expo-router';
