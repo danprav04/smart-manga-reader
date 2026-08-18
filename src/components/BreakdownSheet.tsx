@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 export interface BreakdownSheetRef {
   scrollToRegion: (regionIndex: number) => void;
   expandToHalf: () => void;
+  dismiss: () => void;
 }
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -60,13 +61,23 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
       },
       onPanResponderMove: (_, gestureState) => {
         const newY = currentSnap.current + gestureState.dy;
-        // Clamp between expanded and collapsed
-        const clamped = Math.max(SNAP_TOP_EXPANDED, Math.min(SNAP_TOP_COLLAPSED, newY));
+        // Clamp between expanded and off-screen
+        const clamped = Math.max(SNAP_TOP_EXPANDED, Math.min(SCREEN_HEIGHT, newY));
         translateY.setValue(clamped);
       },
       onPanResponderRelease: (_, gestureState) => {
         const currentY = currentSnap.current + gestureState.dy;
         const velocity = gestureState.vy;
+
+        // Dismiss conditions
+        if (currentY > SNAP_TOP_COLLAPSED + 50 || (velocity > 0.5 && currentSnap.current === SNAP_TOP_COLLAPSED)) {
+          Animated.timing(translateY, {
+            toValue: SCREEN_HEIGHT,
+            duration: 200,
+            useNativeDriver: false,
+          }).start(() => onDismiss());
+          return;
+        }
 
         // Determine which snap point to go to based on position and velocity
         let target: number;
@@ -102,6 +113,13 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
     expandToHalf: () => {
       logger.debug(LogCategory.UI, `BreakdownSheet.expandToHalf() called`);
       snapTo(SNAP_TOP_HALF);
+    },
+    dismiss: () => {
+      Animated.timing(translateY, {
+        toValue: SCREEN_HEIGHT,
+        duration: 200,
+        useNativeDriver: false,
+      }).start(() => onDismiss());
     }
   }));
 
@@ -130,7 +148,13 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
 
       {/* Header Controls */}
       <View style={styles.controlsContainer}>
-        <TouchableOpacity activeOpacity={0.7} style={styles.controlButton} onPress={onDismiss}>
+        <TouchableOpacity activeOpacity={0.7} style={styles.controlButton} onPress={() => {
+          Animated.timing(translateY, {
+            toValue: SCREEN_HEIGHT,
+            duration: 200,
+            useNativeDriver: false,
+          }).start(() => onDismiss());
+        }}>
           <Ionicons name="close" size={18} color="#fff" />
           <Text style={styles.controlText}>Dismiss</Text>
         </TouchableOpacity>

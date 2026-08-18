@@ -84,7 +84,7 @@ export default function ReaderScreen() {
             nightStyle.id = 'night-reader-style';
             nightStyle.innerHTML = \`
               html { filter: invert(1) hue-rotate(180deg); background-color: #fff !important; }
-              img, canvas, video { filter: invert(1) hue-rotate(180deg); }
+              img, canvas, video { filter: invert(1) hue-rotate(180deg) brightness(0.65) contrast(1.1); }
             \`;
             document.head.appendChild(nightStyle);
           }
@@ -241,7 +241,7 @@ export default function ReaderScreen() {
               nightStyle.id = 'night-reader-style';
               nightStyle.innerHTML = \`
                 html { filter: invert(1) hue-rotate(180deg); background-color: #fff !important; }
-                img, canvas, video { filter: invert(1) hue-rotate(180deg); }
+                img, canvas, video { filter: invert(1) hue-rotate(180deg) brightness(0.65) contrast(1.1); }
               \`;
               document.head.appendChild(nightStyle);
             ` : ''}
@@ -293,7 +293,13 @@ export default function ReaderScreen() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <OverlayLayer 
             onRegionTap={handleRegionTap}
-            onDismiss={() => dispatch({ type: 'DISMISS_OVERLAY' })}
+            onDismiss={() => {
+              if (sheetRef.current) {
+                sheetRef.current.dismiss();
+              } else {
+                dispatch({ type: 'DISMISS_OVERLAY' });
+              }
+            }}
           />
           <BreakdownSheet 
             ref={sheetRef} 
