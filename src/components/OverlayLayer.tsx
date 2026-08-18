@@ -3,6 +3,9 @@ import { View, StyleSheet, TouchableOpacity, Pressable, Image, Dimensions, Text,
 import { useBreakdown } from '../store/breakdownStore';
 import * as Haptics from 'expo-haptics';
 import { logger, LogCategory } from '../utils/logger';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 
 interface OverlayLayerProps {
   onRegionTap: (regionIndex: number) => void;
@@ -14,6 +17,7 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
   const { state } = useBreakdown();
   const [layout, setLayout] = useState({ width: 0, height: 0 });
   const windowDimensions = Dimensions.get('window');
+  const insets = useSafeAreaInsets();
 
   // Note: visibility is now controlled by the parent Modal wrapper in index.tsx.
   // We only guard against missing data here.
@@ -94,12 +98,18 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
       })}
 
       {/* Top Controls */}
-      <View style={styles.controlsContainer}>
-        <TouchableOpacity style={styles.controlButton} onPress={onDismiss}>
-          <Text style={styles.controlText}>✕ Dismiss</Text>
+      <View style={[styles.controlsContainer, { top: Math.max(insets.top + 10, 20) }]}>
+        <TouchableOpacity activeOpacity={0.7} onPress={onDismiss}>
+          <BlurView intensity={50} tint="dark" style={styles.controlButton}>
+            <Ionicons name="close" size={18} color="#fff" />
+            <Text style={styles.controlText}>Dismiss</Text>
+          </BlurView>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.controlButton} onPress={onReanalyze}>
-          <Text style={styles.controlText}>⚙ Re-analyze</Text>
+        <TouchableOpacity activeOpacity={0.7} onPress={onReanalyze}>
+          <BlurView intensity={50} tint="dark" style={styles.controlButton}>
+            <Ionicons name="refresh" size={16} color="#fff" />
+            <Text style={styles.controlText}>Re-analyze</Text>
+          </BlurView>
         </TouchableOpacity>
       </View>
     </View>
@@ -126,22 +136,28 @@ const styles = StyleSheet.create({
   },
   controlsContainer: {
     position: 'absolute',
-    top: 50, // Safe area roughly
     left: 16,
     right: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    zIndex: 10,
   },
   controlButton: {
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#333',
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)', // Fallback for BlurView
+    gap: 6,
+    overflow: 'hidden',
   },
   controlText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
 });

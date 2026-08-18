@@ -187,7 +187,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, {}>((props, ref) => 
           ))}
         </View>
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: SNAP_TOP_COLLAPSED + 100 }} />
       </ScrollView>
     </Animated.View>
   );
