@@ -17,7 +17,7 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
     return null;
   }
 
-  const { textRegions } = state.currentBreakdown;
+  const { textRegions = [] } = state.currentBreakdown;
   const imageUri = state.screenshotUri;
 
   const handleRegionTap = (index: number) => {
@@ -44,7 +44,7 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
 
       {/* Render Highlights */}
       {layout.width > 0 && layout.height > 0 && textRegions.map((region, index) => {
-        const [ymin, xmin, ymax, xmax] = region.boundingBox;
+        const [ymin, xmin, ymax, xmax] = region.boundingBox || [0, 0, 0, 0];
         
         // Convert normalized (0-1000) to pixel coordinates
         const top = (ymin / 1000) * layout.height;

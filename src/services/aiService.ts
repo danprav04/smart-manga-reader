@@ -35,6 +35,21 @@ Your output must be a JSON object with this structure:
 }
 `;
 
+const cleanJsonString = (str: string) => {
+  let cleaned = str.trim();
+  if (cleaned.startsWith('\`\`\`json')) {
+    cleaned = cleaned.replace(/^\`\`\`json\n?/, '');
+  }
+  if (cleaned.startsWith('\`\`\`')) {
+    cleaned = cleaned.replace(/^\`\`\`\n?/, '');
+  }
+  if (cleaned.endsWith('\`\`\`')) {
+    cleaned = cleaned.replace(/\n?\`\`\`$/, '');
+  }
+  return cleaned.trim();
+};
+
+
 export const analyzeScreenshot = async (
   base64Image: string,
   settings: Settings
@@ -97,7 +112,7 @@ const analyzeWithGemini = async (base64Image: string, settings: Settings): Promi
       const jsonString = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!jsonString) throw new Error(`Invalid response from Gemini model ${model}`);
 
-      return JSON.parse(jsonString) as BreakdownResult;
+      return JSON.parse(cleanJsonString(jsonString)) as BreakdownResult;
     } catch (error) {
       console.warn(`Failed with model ${model}, trying next...`, error);
       lastError = error instanceof Error ? error : new Error(String(error));
@@ -148,5 +163,5 @@ const analyzeWithOpenAI = async (base64Image: string, settings: Settings): Promi
   const jsonString = data.choices?.[0]?.message?.content;
   if (!jsonString) throw new Error('Invalid response from OpenAI API');
 
-  return JSON.parse(jsonString) as BreakdownResult;
+  return JSON.parse(cleanJsonString(jsonString)) as BreakdownResult;
 };

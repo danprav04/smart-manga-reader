@@ -33,7 +33,12 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, {}>((props, ref) => 
     return null;
   }
 
-  const { fullTranslation, textRegions, vocabulary, grammarPoints } = state.currentBreakdown;
+  const { 
+    fullTranslation, 
+    textRegions = [], 
+    vocabulary = [], 
+    grammarPoints = [] 
+  } = state.currentBreakdown;
 
   return (
     <BottomSheet
