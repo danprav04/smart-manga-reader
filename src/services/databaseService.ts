@@ -64,6 +64,7 @@ export const saveBreakdown = async (
   result: BreakdownResult, 
   screenshotPath: string | undefined
 ): Promise<number> => {
+  if (!url) throw new Error("Cannot save breakdown with empty URL");
   const db = await SQLite.openDatabaseAsync(DB_NAME);
   
   // Start a transaction implicitly by using runAsync sequentially or with a helper
@@ -143,6 +144,7 @@ export const saveBreakdown = async (
 };
 
 export const getBreakdownByUrl = async (url: string): Promise<StoredBreakdown | null> => {
+  if (!url) return null;
   const db = await SQLite.openDatabaseAsync(DB_NAME);
   
   const page = await db.getFirstAsync<any>(`SELECT * FROM pages WHERE url = ?`, [url]);
@@ -184,12 +186,14 @@ export const getBreakdownByUrl = async (url: string): Promise<StoredBreakdown | 
 };
 
 export const hasBreakdownForUrl = async (url: string): Promise<boolean> => {
+  if (!url) return false;
   const db = await SQLite.openDatabaseAsync(DB_NAME);
   const result = await db.getFirstAsync<{count: number}>(`SELECT COUNT(*) as count FROM pages WHERE url = ?`, [url]);
   return (result?.count || 0) > 0;
 };
 
 export const deleteBreakdownForUrl = async (url: string): Promise<void> => {
+  if (!url) return;
   const db = await SQLite.openDatabaseAsync(DB_NAME);
   await db.runAsync(`DELETE FROM pages WHERE url = ?`, [url]); // cascades due to PRAGMA foreign_keys
 };
