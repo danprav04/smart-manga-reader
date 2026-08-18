@@ -4,6 +4,7 @@ import { WebView } from 'react-native-webview';
 import ViewShot from 'react-native-view-shot';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import * as FileSystem from 'expo-file-system/legacy';
 
 import { useSettings } from '../src/store/settingsStore';
 import { useBreakdown } from '../src/store/breakdownStore';
@@ -107,10 +108,20 @@ export default function ReaderScreen() {
       try {
         const cached = await getBreakdownByUrl(urlToAnalyze);
         if (cached) {
-          logger.info(LogCategory.UI, `Loaded cached breakdown for ${urlToAnalyze}`);
-          dispatch({ type: 'LOAD_CACHED', payload: cached });
-          lastAnalyzedScrollY.current = currentScrollY; // Assume we loaded it for current view
-          return;
+          let fileExists = true;
+          if (cached.screenshotPath) {
+            const info = await FileSystem.getInfoAsync(cached.screenshotPath);
+            fileExists = info.exists;
+          }
+          
+          if (fileExists) {
+            logger.info(LogCategory.UI, `Loaded cached breakdown for ${urlToAnalyze}`);
+            dispatch({ type: 'LOAD_CACHED', payload: cached });
+            lastAnalyzedScrollY.current = currentScrollY; // Assume we loaded it for current view
+            return;
+          } else {
+            logger.warn(LogCategory.UI, `Cache exists for ${urlToAnalyze} but screenshot file is missing. Forcing fresh analysis.`);
+          }
         }
       } catch (e) {
         logger.error(LogCategory.UI, "Failed to load cached breakdown", e);
@@ -245,7 +256,7 @@ export default function ReaderScreen() {
       {!state.overlayVisible && (
         <FloatingActionButton 
           onPress={handleFabPress}
-          onLongPress={() => router.push('/settings')}
+          onLongPress={() => performAnalysis(currentUrl, true)}
           isLoading={state.isAnalyzing}
           hasCachedBreakdown={state.hasCachedBreakdown}
         />
