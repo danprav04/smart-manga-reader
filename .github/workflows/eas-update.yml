@@ -6,6 +6,7 @@ on:
         description: 'Update message'
         required: false
         type: string
+        default: 'Update from GitHub Actions'
 
 jobs:
   update:
