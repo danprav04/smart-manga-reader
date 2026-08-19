@@ -12,7 +12,12 @@ module.exports = ({ config }) => {
     userInterfaceStyle: 'automatic',
     ios: {
       icon: './assets/images/icon.png',
-      bundleIdentifier: IS_DEV ? 'com.smartmangareader.dev' : 'com.smartmangareader'
+      bundleIdentifier: IS_DEV ? 'com.smartmangareader.dev' : 'com.smartmangareader',
+      infoPlist: {
+        NSAppTransportSecurity: {
+          NSAllowsArbitraryLoads: true
+        }
+      }
     },
     android: {
       adaptiveIcon: {
@@ -40,7 +45,15 @@ module.exports = ({ config }) => {
       ],
       'expo-secure-store',
       'expo-sqlite',
-      'expo-file-system'
+      'expo-file-system',
+      [
+        'expo-build-properties',
+        {
+          android: {
+            usesCleartextTraffic: true
+          }
+        }
+      ]
     ],
     extra: {
       eas: {
