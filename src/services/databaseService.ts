@@ -222,3 +222,22 @@ export const deleteBreakdownForUrl = async (url: string): Promise<void> => {
   await db.runAsync(`DELETE FROM pages WHERE url = ?`, [url]); // cascades due to PRAGMA foreign_keys
 };
 
+export const getVocabularyStatistics = async (): Promise<{word: string, reading: string, meaning: string, count: number}[]> => {
+  const db = await getDb();
+  return db.getAllAsync<{word: string, reading: string, meaning: string, count: number}>(`
+    SELECT word, reading, meaning, COUNT(id) as count
+    FROM vocabulary
+    GROUP BY word, reading, meaning
+    ORDER BY count DESC
+  `);
+};
+
+export const getGrammarStatistics = async (): Promise<{pattern: string, explanation: string, count: number}[]> => {
+  const db = await getDb();
+  return db.getAllAsync<{pattern: string, explanation: string, count: number}>(`
+    SELECT pattern, explanation, COUNT(id) as count
+    FROM grammar_points
+    GROUP BY pattern, explanation
+    ORDER BY count DESC
+  `);
+};

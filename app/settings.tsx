@@ -200,6 +200,17 @@ export default function SettingsScreen() {
             placeholderTextColor={themeStyles.placeholderTextColor}
           />
         </View>
+        
+        <View style={[styles.section, themeStyles.section]}>
+          <Text style={[styles.sectionTitle, themeStyles.text]}>Data & Statistics</Text>
+          <TouchableOpacity 
+            style={[styles.actionButton, { backgroundColor: '#34C759' }]} 
+            onPress={() => router.push('/statistics')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.actionButtonText}>View Learning Statistics</Text>
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity style={styles.saveButton} onPress={handleSaveKeys} activeOpacity={0.8}>
           <Text style={styles.saveButtonText}>Save API Keys</Text>
@@ -247,4 +258,6 @@ const styles = StyleSheet.create({
 
   saveButton: { backgroundColor: '#208AEF', paddingVertical: 16, borderRadius: 14, alignItems: 'center', marginTop: 8, marginBottom: 40, shadowColor: '#208AEF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   saveButtonText: { color: '#FFFFFF', fontSize: 17, fontWeight: '600' },
+  actionButton: { paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 8 },
+  actionButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
 });
