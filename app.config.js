@@ -47,6 +47,12 @@ module.exports = ({ config }) => {
         projectId: "98370e37-515d-4174-b1e0-19168b78b5b9"
       }
     },
+    updates: {
+      url: "https://u.expo.dev/98370e37-515d-4174-b1e0-19168b78b5b9"
+    },
+    runtimeVersion: {
+      policy: "appVersion"
+    },
     experiments: {
       typedRoutes: true,
       reactCompiler: true

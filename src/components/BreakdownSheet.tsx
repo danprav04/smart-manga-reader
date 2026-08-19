@@ -105,9 +105,11 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
   useImperativeHandle(ref, () => ({
     scrollToRegion: (regionIndex: number) => {
       logger.debug(LogCategory.UI, `BreakdownSheet.scrollToRegion(${regionIndex}) called. yPos: ${regionLayouts.current[regionIndex]}`);
-      const yPos = regionLayouts.current[regionIndex];
-      if (yPos !== undefined && scrollViewRef.current) {
-        scrollViewRef.current.scrollTo({ y: yPos, animated: true });
+      const cardY = regionLayouts.current[regionIndex];
+      if (cardY !== undefined && scrollViewRef.current) {
+        // cardY is relative to the Text Regions section, need to add the section's Y offset
+        const absoluteY = (textRegionsOffsetY.current || 0) + cardY;
+        scrollViewRef.current.scrollTo({ y: absoluteY, animated: true });
       }
     },
     expandToHalf: () => {
@@ -175,7 +177,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
         {fullTranslation && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📖 Full Translation</Text>
-            <Text style={styles.bodyText}>{fullTranslation}</Text>
+            <Text style={styles.bodyText} selectable>{fullTranslation}</Text>
           </View>
         )}
 
@@ -197,7 +199,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
               <View style={styles.furiganaContainer}>
                  <FuriganaText text={region.text} reading={region.reading} />
               </View>
-              <Text style={styles.translation}>{region.translation}</Text>
+              <Text style={styles.translation} selectable>{region.translation}</Text>
               
               {/* Region Vocabulary */}
               {vocabulary.filter(v => v.regionIndex === index).length > 0 && (
@@ -205,9 +207,9 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
                   <Text style={styles.subTitle}>Vocabulary</Text>
                   {vocabulary.filter(v => v.regionIndex === index).map((v, vIndex) => (
                     <View key={vIndex} style={styles.vocabItem}>
-                      <Text style={styles.vocabWord}>{v.word}</Text>
-                      <Text style={styles.vocabReading}>({v.reading})</Text>
-                      <Text style={styles.vocabMeaning}>- {v.meaning}</Text>
+                      <Text style={styles.vocabWord} selectable>{v.word}</Text>
+                      <Text style={styles.vocabReading} selectable>({v.reading})</Text>
+                      <Text style={styles.vocabMeaning} selectable>- {v.meaning}</Text>
                     </View>
                   ))}
                 </View>
@@ -219,8 +221,8 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
                   <Text style={styles.subTitle}>Grammar</Text>
                   {grammarPoints.filter(g => g.regionIndex === index).map((g, gIndex) => (
                     <View key={gIndex} style={styles.grammarItem}>
-                      <Text style={styles.grammarPattern}>{g.pattern}</Text>
-                      <Text style={styles.grammarExplanation}>{g.explanation}</Text>
+                      <Text style={styles.grammarPattern} selectable>{g.pattern}</Text>
+                      <Text style={styles.grammarExplanation} selectable>{g.explanation}</Text>
                     </View>
                   ))}
                 </View>

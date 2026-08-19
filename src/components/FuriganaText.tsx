@@ -15,9 +15,9 @@ export const FuriganaText: React.FC<FuriganaTextProps> = ({ text, reading, style
   return (
     <View style={[styles.container, style]}>
       {reading ? (
-        <Text style={styles.ruby}>{reading}</Text>
+        <Text style={styles.ruby} selectable>{reading}</Text>
       ) : null}
-      <Text style={styles.text}>{text}</Text>
+      <Text style={styles.text} selectable>{text}</Text>
     </View>
   );
 };
