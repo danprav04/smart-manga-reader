@@ -1,6 +1,7 @@
 export interface TextRegion {
   text: string;
   reading: string;
+  furiganaText?: string;
   translation: string;
   boundingBox: [number, number, number, number]; // [ymin, xmin, ymax, xmax] normalized 0-1000
 }

@@ -203,7 +203,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
                 <Text style={styles.regionNumber}>Region {index + 1}</Text>
               </View>
               <View style={styles.furiganaContainer}>
-                 <FuriganaText text={region.text} reading={region.reading} />
+                 <FuriganaText text={region.text} reading={region.reading} furiganaText={region.furiganaText} />
               </View>
               <Text style={styles.translation} selectable>{region.translation}</Text>
               
@@ -247,6 +247,8 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
     </Animated.View>
   );
 });
+
+BreakdownSheet.displayName = 'BreakdownSheet';
 
 const styles = StyleSheet.create({
   sheetContainer: {

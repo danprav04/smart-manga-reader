@@ -41,6 +41,7 @@ export const initDatabase = async (): Promise<void> => {
       page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
       text_original TEXT NOT NULL,
       reading TEXT,
+      furigana_text TEXT,
       translation TEXT,
       bbox_ymin INTEGER,
       bbox_xmin INTEGER,
@@ -72,6 +73,16 @@ export const initDatabase = async (): Promise<void> => {
       sort_order INTEGER
     );
   `);
+  
+  // Migration for old databases that don't have furigana_text
+  try {
+    const columns = await db.getAllAsync<{name: string}>(`PRAGMA table_info(text_regions);`);
+    if (columns && !columns.find(c => c.name === 'furigana_text')) {
+      await db.execAsync(`ALTER TABLE text_regions ADD COLUMN furigana_text TEXT;`);
+    }
+  } catch (e) {
+    console.error('Failed to migrate text_regions table', e);
+  }
 };
 
 export const saveBreakdown = async (
@@ -118,10 +129,10 @@ export const saveBreakdown = async (
     for (let i = 0; i < result.textRegions.length; i++) {
       const tr = result.textRegions[i];
       await db.runAsync(
-        `INSERT INTO text_regions (page_id, text_original, reading, translation, bbox_ymin, bbox_xmin, bbox_ymax, bbox_xmax, sort_order)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO text_regions (page_id, text_original, reading, furigana_text, translation, bbox_ymin, bbox_xmin, bbox_ymax, bbox_xmax, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          pageId, tr.text, tr.reading, tr.translation,
+          pageId, tr.text, tr.reading, tr.furiganaText || null, tr.translation,
           tr.boundingBox[0], tr.boundingBox[1], tr.boundingBox[2], tr.boundingBox[3], i
         ]
       );
@@ -177,6 +188,7 @@ export const getBreakdownByUrl = async (url: string): Promise<StoredBreakdown | 
     textRegions: textRegions.map(tr => ({
       text: tr.text_original,
       reading: tr.reading,
+      furiganaText: tr.furigana_text,
       translation: tr.translation,
       boundingBox: [tr.bbox_ymin, tr.bbox_xmin, tr.bbox_ymax, tr.bbox_xmax]
     })),

@@ -4,33 +4,35 @@ import { logger, LogCategory } from '../utils/logger';
 
 const getSystemPrompt = (japaneseLevel: string) => `
 You are an expert Japanese translator and language tutor.
-Your task is to analyze a manga page and provide a detailed breakdown.
+Your task is to analyze a manga page and provide an exhaustive, detailed breakdown.
 The user's current Japanese progression level is: ${japaneseLevel || 'Unknown'}. 
-You have freedom in how you explain grammar and vocabulary. Accommodate your explanations to the visual context of the scene and the user's level. Feel free to expand on cultural nuances, slang, or idioms if it helps a ${japaneseLevel || 'Unknown'} learner, or keep it brief if it's a concept they should already know.
-Pay close attention to the visual context of the scene in the image (character expressions, actions, background, situation) to ensure the translations and explanations are highly accurate and contextually appropriate.
+You have freedom in how you explain grammar and vocabulary, but you MUST be extremely thorough. Accommodate your explanations to the visual context of the scene and the user's level.
 
-Please extract all text visible in the manga image (speech bubbles, narration, sound effects).
-For each text region, provide:
-1. The original Japanese text
-2. The reading (with furigana/kana)
-3. The English translation
-4. The bounding box of the text. This MUST be a 4-element array [ymin, xmin, ymax, xmax] where each value is an integer between 0 and 1000 representing normalized coordinates (0,0 is top-left, 1000,1000 is bottom-right). ymin is top, xmin is left, ymax is bottom, xmax is right. Ensure the box tightly wraps the Japanese text itself, NOT the surrounding speech bubble.
+CRITICAL INSTRUCTIONS FOR EXHAUSTIVE EXTRACTION:
+1. You MUST extract EVERY SINGLE text region visible in the manga image (speech bubbles, narration, sound effects, background text). Do NOT skip, summarize, or group distinct bubbles together.
+2. For EVERY text region you identify, you MUST provide its original Japanese text, reading, translation, and bounding box. 
+   - The bounding box MUST be a 4-element array [ymin, xmin, ymax, xmax] using normalized integer coordinates (0 to 1000). ymin is top, xmin is left, ymax is bottom, xmax is right. Box must tightly wrap the text.
+3. You MUST provide at least one vocabulary item and one grammar point for EVERY sentence or text region inside its specific "vocabulary" and "grammarPoints" arrays, unless it is a simple sound effect or a single character without grammatical context.
+4. DO NOT be lazy. If there are 10 text bubbles, there MUST be 10 text regions extracted, and corresponding vocabulary and grammar for all 10. Do not omit details to save space.
 
-Also provide a deduplicated list of vocabulary used across all text regions.
-Link each vocabulary item to the index of the text region where it first appeared.
-Provide grammar explanations for key grammatical patterns used.
-Provide a full natural English translation of the entire page.
+Provide a full natural English translation of the entire page at the end.
 
-Your output must be a JSON object with this structure:
+Your output must be a JSON object with exactly this structure:
 {
   "textRegions": [
-    { "text": "...", "reading": "...", "translation": "...", "boundingBox": [ymin, xmin, ymax, xmax] }
-  ],
-  "vocabulary": [
-    { "word": "...", "reading": "...", "partOfSpeech": "...", "meaning": "...", "contextSentence": "...", "regionIndex": 0 }
-  ],
-  "grammarPoints": [
-    { "pattern": "...", "explanation": "...", "exampleFromText": "...", "regionIndex": 0 }
+    {
+      "text": "...",
+      "reading": "...",
+      "furiganaText": "The original text but with readings ONLY for Kanji and Katakana formatted as {Base|Reading}. Do not add readings for Hiragana. Example: {俺|おれ}{今日|きょう}{初|はじ}めて{喋|しゃべ}ったわ",
+      "translation": "...",
+      "boundingBox": [ymin, xmin, ymax, xmax],
+      "vocabulary": [
+        { "word": "...", "reading": "...", "partOfSpeech": "...", "meaning": "...", "contextSentence": "..." }
+      ],
+      "grammarPoints": [
+        { "pattern": "...", "explanation": "...", "exampleFromText": "..." }
+      ]
+    }
   ],
   "fullTranslation": "...",
   "contextNotes": "..."
@@ -62,21 +64,75 @@ const cleanJsonString = (str: string) => {
 
 const parseAndSalvageJson = (jsonString: string): BreakdownResult => {
   const cleaned = cleanJsonString(jsonString);
+  let parsed: any;
   try {
-    return JSON.parse(cleaned) as BreakdownResult;
+    parsed = JSON.parse(cleaned);
   } catch (parseError: any) {
     // Try to salvage the JSON if the model appended extra invalid text after contextNotes
     try {
       const match = cleaned.match(/(.*"contextNotes"\s*:\s*"(?:[^"\\]|\\.)*")/s);
       if (match) {
         const salvaged = match[1] + '\n}';
-        return JSON.parse(salvaged) as BreakdownResult;
+        parsed = JSON.parse(salvaged);
       }
     } catch (e) {
       // If salvage fails, fall through to throwing the original error
     }
-    throw new Error(`AI returned invalid format: ${jsonString}`);
+    if (!parsed) {
+      throw new Error(`AI returned invalid format: ${jsonString}`);
+    }
   }
+
+  // Support legacy format if model ignores instructions
+  if (parsed.vocabulary && parsed.grammarPoints) {
+    return parsed as BreakdownResult;
+  }
+
+  // Map from nested format
+  const textRegions = parsed.textRegions || [];
+  const mappedTextRegions: any[] = [];
+  const vocabulary: any[] = [];
+  const grammarPoints: any[] = [];
+
+  textRegions.forEach((region: any, index: number) => {
+    mappedTextRegions.push({
+      text: region.text || '',
+      reading: region.reading || '',
+      furiganaText: region.furiganaText || '',
+      translation: region.translation || '',
+      boundingBox: region.boundingBox || [0, 0, 0, 0]
+    });
+
+    if (Array.isArray(region.vocabulary)) {
+      region.vocabulary.forEach((v: any) => {
+        vocabulary.push({ ...v, regionIndex: index });
+      });
+    }
+
+    if (Array.isArray(region.grammarPoints)) {
+      region.grammarPoints.forEach((g: any) => {
+        grammarPoints.push({ ...g, regionIndex: index });
+      });
+    }
+  });
+
+  // Deduplicate vocabulary by word
+  const seenWords = new Set<string>();
+  const dedupedVocab: any[] = [];
+  vocabulary.forEach(v => {
+    if (v.word && !seenWords.has(v.word)) {
+      seenWords.add(v.word);
+      dedupedVocab.push(v);
+    }
+  });
+
+  return {
+    textRegions: mappedTextRegions,
+    vocabulary: dedupedVocab,
+    grammarPoints: grammarPoints,
+    fullTranslation: parsed.fullTranslation || '',
+    contextNotes: parsed.contextNotes
+  };
 };
 
 export const analyzeScreenshot = async (
