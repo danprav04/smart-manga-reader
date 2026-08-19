@@ -30,6 +30,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
   const { state } = useBreakdown();
   const scrollViewRef = useRef<ScrollView>(null);
   const regionLayouts = useRef<{ [key: number]: number }>({});
+  const textRegionsOffsetY = useRef<number>(0);
   const translateY = useRef(new Animated.Value(SNAP_TOP_COLLAPSED)).current;
   const currentSnap = useRef(SNAP_TOP_COLLAPSED);
 
@@ -182,7 +183,12 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
         )}
 
         {/* Text Regions */}
-        <View style={styles.section}>
+        <View 
+          style={styles.section}
+          onLayout={(event) => {
+            textRegionsOffsetY.current = event.nativeEvent.layout.y;
+          }}
+        >
           <Text style={styles.sectionTitle}>💬 Text Regions</Text>
           {textRegions.map((region, index) => (
             <View 
