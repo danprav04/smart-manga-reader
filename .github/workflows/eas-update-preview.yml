@@ -1,14 +1,16 @@
 name: EAS Update Preview
 on:
-  pull_request:
-    types: [opened, synchronize]
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Update message'
+        required: false
+        type: string
 
 jobs:
   update:
     name: EAS Update Preview
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write # Allow comments on PRs
     steps:
       - name: Check for EXPO_TOKEN
         run: |
@@ -35,7 +37,10 @@ jobs:
       - name: 📦 Install dependencies
         run: npm ci
 
-      - name: 🚀 Create preview
-        uses: expo/expo-github-action/preview@v8
-        with:
-          command: eas update --auto
+      - name: 🚀 Create preview update
+        run: |
+          if [ -n "${{ inputs.message }}" ]; then
+            eas update --auto --message "${{ inputs.message }}"
+          else
+            eas update --auto
+          fi
