@@ -11,12 +11,12 @@ module.exports = ({ config }) => {
     scheme: 'smartmangareader',
     userInterfaceStyle: 'automatic',
     ios: {
-      icon: './assets/expo.icon',
+      icon: './assets/images/icon.png',
       bundleIdentifier: IS_DEV ? 'com.smartmangareader.dev' : 'com.smartmangareader'
     },
     android: {
       adaptiveIcon: {
-        backgroundColor: '#E6F4FE',
+        backgroundColor: '#FFBE98',
         foregroundImage: './assets/images/android-icon-foreground.png',
         backgroundImage: './assets/images/android-icon-background.png',
         monochromeImage: './assets/images/android-icon-monochrome.png'
@@ -33,9 +33,9 @@ module.exports = ({ config }) => {
       [
         'expo-splash-screen',
         {
-          backgroundColor: '#208AEF',
+          backgroundColor: '#FFBE98',
           image: './assets/images/splash-icon.png',
-          imageWidth: 76
+          imageWidth: 200
         }
       ],
       'expo-secure-store',
