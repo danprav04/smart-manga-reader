@@ -28,7 +28,7 @@ export const initDatabase = async (): Promise<void> => {
 
     CREATE TABLE IF NOT EXISTS pages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      url TEXT NOT NULL UNIQUE,
+      url TEXT NOT NULL,
       site_domain TEXT NOT NULL,
       full_translation TEXT,
       context_notes TEXT,
@@ -83,6 +83,32 @@ export const initDatabase = async (): Promise<void> => {
   } catch (e) {
     console.error('Failed to migrate text_regions table', e);
   }
+
+  // Migration for old databases to drop UNIQUE constraint on pages.url
+  try {
+    const tableInfo = await db.getAllAsync<{sql: string}>(`SELECT sql FROM sqlite_master WHERE type='table' AND name='pages'`);
+    if (tableInfo && tableInfo.length > 0 && tableInfo[0].sql.includes('UNIQUE')) {
+      await db.execAsync(`
+        PRAGMA foreign_keys = OFF;
+        DROP TABLE IF EXISTS pages_new;
+        CREATE TABLE pages_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          url TEXT NOT NULL,
+          site_domain TEXT NOT NULL,
+          full_translation TEXT,
+          context_notes TEXT,
+          screenshot_path TEXT,
+          analyzed_at TEXT NOT NULL
+        );
+        INSERT INTO pages_new SELECT id, url, site_domain, full_translation, context_notes, screenshot_path, analyzed_at FROM pages;
+        DROP TABLE pages;
+        ALTER TABLE pages_new RENAME TO pages;
+        PRAGMA foreign_keys = ON;
+      `);
+    }
+  } catch (e) {
+    console.error('Failed to migrate pages table to drop UNIQUE constraint', e);
+  }
 };
 
 export const saveBreakdown = async (
@@ -96,16 +122,10 @@ export const saveBreakdown = async (
   
   let pageId = -1;
   await db.withTransactionAsync(async () => {
-    // Upsert the page
+    // Insert the page as a new scan
     const insertPage = await db.runAsync(
       `INSERT INTO pages (url, site_domain, full_translation, context_notes, screenshot_path, analyzed_at) 
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT(url) DO UPDATE SET
-         full_translation=excluded.full_translation,
-         context_notes=excluded.context_notes,
-         screenshot_path=excluded.screenshot_path,
-         analyzed_at=excluded.analyzed_at
-       RETURNING id`,
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         url, 
         domain, 
@@ -116,14 +136,7 @@ export const saveBreakdown = async (
       ]
     );
     
-    const pageRow = await db.getFirstAsync<{id: number}>(`SELECT id FROM pages WHERE url = ?`, [url]);
-    if (!pageRow) throw new Error("Failed to save page");
-    pageId = pageRow.id;
-
-    // Clear old data for this page
-    await db.runAsync(`DELETE FROM text_regions WHERE page_id = ?`, [pageId]);
-    await db.runAsync(`DELETE FROM vocabulary WHERE page_id = ?`, [pageId]);
-    await db.runAsync(`DELETE FROM grammar_points WHERE page_id = ?`, [pageId]);
+    pageId = insertPage.lastInsertRowId;
 
     // Insert text regions
     for (let i = 0; i < result.textRegions.length; i++) {
@@ -170,7 +183,7 @@ export const getBreakdownByUrl = async (url: string): Promise<StoredBreakdown | 
   if (!url) return null;
   const db = await getDb();
   
-  const page = await db.getFirstAsync<any>(`SELECT * FROM pages WHERE url = ?`, [url]);
+  const page = await db.getFirstAsync<any>(`SELECT * FROM pages WHERE url = ? ORDER BY analyzed_at DESC LIMIT 1`, [url]);
   if (!page) return null;
 
   const textRegions = await db.getAllAsync<any>(`SELECT * FROM text_regions WHERE page_id = ? ORDER BY sort_order ASC`, [page.id]);
