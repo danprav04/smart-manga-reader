@@ -99,6 +99,8 @@ export default function ReaderScreen() {
     }
   }, [settings.nightReader]);
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const performAnalysis = async (urlToAnalyze: string, reanalyze = false) => {
     if (state.isAnalyzing) return;
     
@@ -130,13 +132,14 @@ export default function ReaderScreen() {
     }
 
     // Capture and analyze
+    abortControllerRef.current = new AbortController();
     try {
       logger.info(LogCategory.UI, `Starting fresh AI analysis...`);
       dispatch({ type: 'START_ANALYSIS' });
       
       const { uri, base64 } = await captureWebView(viewShotRef.current);
       
-      const result = await analyzeScreenshot(base64, settings);
+      const result = await analyzeScreenshot(base64, settings, abortControllerRef.current.signal);
       
       // Save to SQLite
       const domain = new URL(urlToAnalyze).hostname;
@@ -146,9 +149,16 @@ export default function ReaderScreen() {
       lastAnalyzedScrollY.current = currentScrollY;
       dispatch({ type: 'ANALYSIS_COMPLETE', payload: { result, screenshotUri: uri } });
     } catch (e: any) {
-      logger.error(LogCategory.UI, "Analysis failed", e);
-      Alert.alert("Analysis Failed", e.message || "Something went wrong.");
-      dispatch({ type: 'ANALYSIS_ERROR', payload: e.message });
+      if (e.name === 'AbortError' || e.message?.includes('aborted')) {
+        logger.info(LogCategory.UI, "Analysis aborted by user");
+        dispatch({ type: 'ANALYSIS_ERROR', payload: "Aborted" });
+      } else {
+        logger.error(LogCategory.UI, "Analysis failed", e);
+        Alert.alert("Analysis Failed", e.message || "Something went wrong.");
+        dispatch({ type: 'ANALYSIS_ERROR', payload: e.message });
+      }
+    } finally {
+      abortControllerRef.current = null;
     }
   };
 
@@ -225,6 +235,7 @@ export default function ReaderScreen() {
           onLoadStart={() => setIsPageLoading(true)}
           onLoadEnd={handleLoadEnd}
           {...readerConfig.webViewProps}
+          scrollEnabled={!state.isAnalyzing && !state.overlayVisible}
           onMessage={handleWebViewMessage}
           androidLayerType={state.overlayVisible ? 'software' : 'hardware'}
           style={[styles.webview, { opacity: 0.99 }]}
@@ -350,6 +361,7 @@ export default function ReaderScreen() {
         <FloatingActionButton 
           onPress={handleFabPress}
           onLongPress={() => performAnalysis(currentUrl, true)}
+          onAbort={() => abortControllerRef.current?.abort()}
           isLoading={state.isAnalyzing}
           hasCachedBreakdown={state.hasCachedBreakdown}
         />

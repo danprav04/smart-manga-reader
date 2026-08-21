@@ -137,16 +137,17 @@ const parseAndSalvageJson = (jsonString: string): BreakdownResult => {
 
 export const analyzeScreenshot = async (
   base64Image: string,
-  settings: Settings
+  settings: Settings,
+  signal?: AbortSignal
 ): Promise<BreakdownResult> => {
   logger.info(LogCategory.AI, `Starting analysis. Provider: ${settings.aiProvider}, Base64 size: ${base64Image.length} chars`);
   try {
     const startTime = Date.now();
     let result: BreakdownResult;
     if (settings.aiProvider === 'gemini') {
-      result = await analyzeWithGemini(base64Image, settings);
+      result = await analyzeWithGemini(base64Image, settings, signal);
     } else {
-      result = await analyzeWithOpenAI(base64Image, settings);
+      result = await analyzeWithOpenAI(base64Image, settings, signal);
     }
     const elapsed = Date.now() - startTime;
     logger.info(LogCategory.AI, `Analysis completed successfully in ${elapsed}ms. Found ${result.textRegions?.length || 0} text regions.`);
@@ -157,7 +158,7 @@ export const analyzeScreenshot = async (
   }
 };
 
-const analyzeWithGemini = async (base64Image: string, settings: Settings): Promise<BreakdownResult> => {
+const analyzeWithGemini = async (base64Image: string, settings: Settings, signal?: AbortSignal): Promise<BreakdownResult> => {
   const apiKey = await getGeminiApiKey();
   if (!apiKey) throw new Error('Gemini API key is not set');
 
@@ -182,6 +183,7 @@ const analyzeWithGemini = async (base64Image: string, settings: Settings): Promi
 
         const response = await fetch(url, {
           method: 'POST',
+          signal,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             system_instruction: {
@@ -226,7 +228,7 @@ const analyzeWithGemini = async (base64Image: string, settings: Settings): Promi
   throw lastError || new Error('All fallback models failed');
 };
 
-const analyzeWithOpenAI = async (base64Image: string, settings: Settings): Promise<BreakdownResult> => {
+const analyzeWithOpenAI = async (base64Image: string, settings: Settings, signal?: AbortSignal): Promise<BreakdownResult> => {
   const apiKey = await getOpenAIApiKey();
   if (!apiKey) throw new Error('OpenAI API key is not set');
 
@@ -253,6 +255,7 @@ const analyzeWithOpenAI = async (base64Image: string, settings: Settings): Promi
     try {
       const response = await fetch(url, {
         method: 'POST',
+        signal,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`

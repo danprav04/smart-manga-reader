@@ -17,6 +17,7 @@ import Animated, {
 interface FloatingActionButtonProps {
   onPress: () => void;
   onLongPress?: () => void;
+  onAbort?: () => void;
   isLoading: boolean;
   hasCachedBreakdown: boolean;
 }
@@ -24,6 +25,7 @@ interface FloatingActionButtonProps {
 export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ 
   onPress, 
   onLongPress,
+  onAbort,
   isLoading, 
   hasCachedBreakdown 
 }) => {
@@ -54,7 +56,11 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    onPress();
+    if (isLoading && onAbort) {
+      onAbort();
+    } else {
+      onPress();
+    }
   };
 
   const handleLongPress = () => {
@@ -77,7 +83,6 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
       onPress={handlePress}
       onLongPress={handleLongPress}
       activeOpacity={0.8}
-      disabled={isLoading}
     >
       <BlurView 
         intensity={80} 
@@ -85,7 +90,10 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
         style={styles.blurContainer}
       >
         {isLoading ? (
-          <ActivityIndicator color="#fff" size="small" />
+          <View style={styles.iconContainer}>
+            <ActivityIndicator color="#FF5252" size="large" style={{ position: 'absolute' }} />
+            <Ionicons name="close" size={20} color="#FF5252" />
+          </View>
         ) : (
           <View style={styles.iconContainer}>
             <Animated.View style={animatedIconStyle}>
