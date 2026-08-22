@@ -170,8 +170,8 @@ export default function ReaderScreen() {
         dispatch({ type: 'ANALYSIS_ERROR', payload: "Aborted" });
       } else {
         logger.warn(LogCategory.UI, "Analysis failed", e);
-        Alert.alert("Analysis Failed", e.message || "Something went wrong.");
         dispatch({ type: 'ANALYSIS_ERROR', payload: e.message });
+        Alert.alert("Analysis Failed", e.message || "Something went wrong.");
       }
     } finally {
       abortControllerRef.current = null;

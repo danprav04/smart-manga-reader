@@ -348,66 +348,7 @@ const analyzeWithGemini = async (
           }
         ],
         generationConfig: {
-          response_mime_type: 'application/json',
-          response_schema: {
-            type: "OBJECT",
-            properties: {
-              textRegions: {
-                type: "ARRAY",
-                items: {
-                  type: "OBJECT",
-                  properties: {
-                    id: { type: "INTEGER" },
-                    boundingBox: { type: "ARRAY", items: { type: "INTEGER" } },
-                    text: { type: "STRING" },
-                    reading: { type: "STRING" },
-                    furiganaText: { type: "STRING" },
-                    translation: { type: "STRING" }
-                  },
-                  required: ["id", "boundingBox", "text", "reading", "furiganaText", "translation"]
-                }
-              },
-              detailedAnalysis: {
-                type: "ARRAY",
-                items: {
-                  type: "OBJECT",
-                  properties: {
-                    id: { type: "INTEGER" },
-                    vocabulary: {
-                      type: "ARRAY",
-                      items: {
-                        type: "OBJECT",
-                        properties: {
-                          word: { type: "STRING" },
-                          reading: { type: "STRING" },
-                          partOfSpeech: { type: "STRING" },
-                          meaning: { type: "STRING" },
-                          contextSentence: { type: "STRING" }
-                        },
-                        required: ["word", "reading", "partOfSpeech", "meaning", "contextSentence"]
-                      }
-                    },
-                    grammarPoints: {
-                      type: "ARRAY",
-                      items: {
-                        type: "OBJECT",
-                        properties: {
-                          pattern: { type: "STRING" },
-                          explanation: { type: "STRING" },
-                          exampleFromText: { type: "STRING" }
-                        },
-                        required: ["pattern", "explanation", "exampleFromText"]
-                      }
-                    }
-                  },
-                  required: ["id", "vocabulary", "grammarPoints"]
-                }
-              },
-              fullTranslation: { type: "STRING" },
-              contextNotes: { type: "STRING" }
-            },
-            required: ["textRegions", "detailedAnalysis", "fullTranslation"]
-          }
+          response_mime_type: 'application/json'
         }
       };
 
@@ -468,7 +409,13 @@ const analyzeWithGemini = async (
               if (!isDone) {
                 const status = err.status || err.type;
                 logger.warn(LogCategory.AI, `Stream error after ${Date.now() - requestStartTime}ms: ${status}`);
-                reject(new Error(`Stream error: ${status}`));
+                if (fullText.length > 500) {
+                  logger.info(LogCategory.AI, "Stream errored but we have substantial data. Attempting to salvage...");
+                  isDone = true;
+                  resolve(fullText);
+                } else {
+                  reject(new Error(`Stream error: ${status}`));
+                }
               }
             });
 
