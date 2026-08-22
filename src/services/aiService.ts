@@ -10,11 +10,14 @@ The user's current Japanese progression level is: ${japaneseLevel || 'Unknown'}.
 You have freedom in how you explain grammar and vocabulary, but you MUST be extremely thorough. Accommodate your explanations to the visual context of the scene and the user's level.
 
 CRITICAL INSTRUCTIONS FOR EXHAUSTIVE EXTRACTION:
-1. You MUST extract EVERY SINGLE text region visible in the manga image (speech bubbles, narration, sound effects, background text). Do NOT skip, summarize, or group distinct bubbles together.
+1. You MUST extract EVERY SINGLE text region visible in the manga image (speech bubbles, narration, sound effects, background text). Do NOT skip, summarize, or group distinct bubbles together. Avoid duplicate regions for the same text bubble.
 2. For EVERY text region you identify, you MUST provide its original Japanese text, reading, translation, and bounding box. 
-   - The bounding box MUST be a 4-element array [ymin, xmin, ymax, xmax] using normalized integer coordinates (0 to 1000). ymin is top, xmin is left, ymax is bottom, xmax is right. Box must tightly wrap the text.
-3. You MUST provide at least one vocabulary item and one grammar point for EVERY sentence or text region inside its specific "vocabulary" and "grammarPoints" arrays in the detailedAnalysis section.
-4. DO NOT be lazy. If there are 10 text bubbles, there MUST be 10 text regions extracted, and corresponding detailed analysis for all 10. Do not omit details to save space.
+   - The bounding box MUST be a 4-element array [ymin, xmin, ymax, xmax] using normalized integer coordinates (0 to 1000). Box must tightly wrap the text.
+3. ZERO OMISSION / RECONSTRUCTION INVARIANT: For EVERY text region, you MUST provide a complete, word-by-word and morpheme-by-morpheme breakdown.
+   - Every single character in the text MUST be accounted for in the "vocabulary" array. 
+   - If you concatenate the "word" fields of all vocabulary items in a region, it MUST exactly match the region's "text", character-for-character, including particles (は, が, に, etc.), copulas (だ), auxiliary verbs, prefixes, suffixes, and punctuation.
+   - Do NOT skip particles, common words, or conjugations.
+4. DO NOT be lazy. If there are 10 text bubbles, there MUST be 10 text regions extracted, and corresponding exhaustive analysis for all 10.
 
 You must structure your JSON into TWO phases:
 Phase 1: "textRegions" - Output all boxes and text quickly.
@@ -28,7 +31,7 @@ Your output must be a JSON object with exactly this structure:
       "boundingBox": [ymin, xmin, ymax, xmax],
       "text": "...",
       "reading": "...",
-      "furiganaText": "The original text but with readings ONLY for Kanji and Katakana formatted as {Base|Reading}. Do not add readings for Hiragana. Example: {俺|おれ}{今日|きょう}{初|はじ}めて{喋|しゃべ}ったわ",
+      "furiganaText": "The original text but with readings ONLY for Kanji and Katakana formatted as {Base|Reading}. Do not add readings for Hiragana.",
       "translation": "..."
     }
   ],
@@ -97,7 +100,24 @@ const mapParsedBreakdown = (parsed: any): BreakdownResult => {
   const vocabulary: any[] = [];
   const grammarPoints: any[] = [];
 
-  textRegions.forEach((region: any, index: number) => {
+  // Deduplicate text regions based on exact text match
+  const uniqueTextRegions: any[] = [];
+  const seenTexts = new Set<string>();
+  
+  textRegions.forEach((region: any) => {
+    const textStr = (region.text || '').trim();
+    if (textStr && !seenTexts.has(textStr)) {
+      seenTexts.add(textStr);
+      uniqueTextRegions.push(region);
+    } else if (!textStr && region.id) {
+      // If it has no text yet (e.g. streaming), we still keep it by ID
+      if (!uniqueTextRegions.find(r => r.id === region.id)) {
+        uniqueTextRegions.push(region);
+      }
+    }
+  });
+
+  uniqueTextRegions.forEach((region: any, index: number) => {
     mappedTextRegions.push({
       text: region.text || '',
       reading: region.reading || '',
@@ -121,18 +141,9 @@ const mapParsedBreakdown = (parsed: any): BreakdownResult => {
     }
   });
 
-  const seenWords = new Set<string>();
-  const dedupedVocab: any[] = [];
-  vocabulary.forEach(v => {
-    if (v.word && !seenWords.has(v.word)) {
-      seenWords.add(v.word);
-      dedupedVocab.push(v);
-    }
-  });
-
   return {
     textRegions: mappedTextRegions,
-    vocabulary: dedupedVocab,
+    vocabulary: vocabulary,
     grammarPoints: grammarPoints,
     fullTranslation: parsed.fullTranslation || '',
     contextNotes: parsed.contextNotes
