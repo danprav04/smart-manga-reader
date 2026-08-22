@@ -1,7 +1,8 @@
 import React, { useRef, forwardRef, useImperativeHandle, useState, useEffect, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, 
-  Animated, PanResponder, Dimensions, TouchableOpacity 
+  Animated, PanResponder, Dimensions, TouchableOpacity,
+  ActivityIndicator
 } from 'react-native';
 import { useBreakdown } from '../store/breakdownStore';
 import { FuriganaText } from './FuriganaText';
@@ -151,20 +152,33 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
 
       {/* Header Controls */}
       <View style={styles.controlsContainer}>
-        <TouchableOpacity activeOpacity={0.7} style={styles.controlButton} onPress={() => {
-          Animated.timing(translateY, {
-            toValue: SCREEN_HEIGHT,
-            duration: 200,
-            useNativeDriver: false,
-          }).start(() => onDismiss());
-        }}>
-          <Ionicons name="close" size={18} color="#fff" />
-          <Text style={styles.controlText}>Dismiss</Text>
-        </TouchableOpacity>
-        <TouchableOpacity activeOpacity={0.7} style={styles.controlButton} onPress={onReanalyze}>
-          <Ionicons name="refresh" size={16} color="#fff" />
-          <Text style={styles.controlText}>Re-analyze</Text>
-        </TouchableOpacity>
+        <View style={styles.headerLeft}>
+          <Text style={styles.sheetTitle}>Breakdown</Text>
+          {state.isAnalyzing && (
+            <View style={styles.analyzingBadge}>
+              <ActivityIndicator size="small" color="#4CAF50" />
+              <Text style={styles.analyzingText}>Analyzing...</Text>
+            </View>
+          )}
+        </View>
+        
+        <View style={styles.headerRight}>
+          {!state.isAnalyzing && (
+            <TouchableOpacity activeOpacity={0.7} style={styles.primaryButton} onPress={onReanalyze}>
+              <Ionicons name="refresh" size={16} color="#fff" />
+              <Text style={styles.primaryButtonText}>Re-analyze</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity activeOpacity={0.7} style={styles.ghostButton} onPress={() => {
+            Animated.timing(translateY, {
+              toValue: SCREEN_HEIGHT,
+              duration: 200,
+              useNativeDriver: false,
+            }).start(() => onDismiss());
+          }}>
+            <Ionicons name="close" size={24} color="#bbb" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Content */}
@@ -281,28 +295,59 @@ const styles = StyleSheet.create({
   controlsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: '#3a3a5e',
     marginBottom: 8,
   },
-  controlButton: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 12,
+  },
+  sheetTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  analyzingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
     gap: 6,
   },
-  controlText: {
+  analyzingText: {
+    color: '#4CAF50',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  primaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  primaryButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
-    letterSpacing: 0.3,
+  },
+  ghostButton: {
+    padding: 4,
+    borderRadius: 20,
   },
   contentContainer: {
     flex: 1,
