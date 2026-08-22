@@ -1,5 +1,6 @@
 import { captureRef } from 'react-native-view-shot';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { logger, LogCategory } from '../utils/logger';
 
 export const captureWebView = async (viewRef: any): Promise<{ uri: string; base64: string }> => {
@@ -14,18 +15,25 @@ export const captureWebView = async (viewRef: any): Promise<{ uri: string; base6
     });
     logger.debug(LogCategory.SCREENSHOT, `Captured temporary screenshot at ${uri}`);
 
+    // Compress and resize the image to save bandwidth and AI tokens
+    const manipResult = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: 1024 } }],
+      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+    );
+    logger.debug(LogCategory.SCREENSHOT, `Resized and compressed screenshot to width 1024, quality 0.7`);
+
     // We also need it as a persistent file if we want to store it across app restarts
-    const filename = uri.split('/').pop();
+    const filename = manipResult.uri.split('/').pop();
     const persistentUri = FileSystem.documentDirectory + (filename || `screenshot_${Date.now()}.jpg`);
     
     await FileSystem.copyAsync({
-      from: uri,
+      from: manipResult.uri,
       to: persistentUri,
     });
     logger.debug(LogCategory.SCREENSHOT, `Copied screenshot to persistent storage at ${persistentUri}`);
 
-    // Read it as base64 for the AI API
-    const base64 = await FileSystem.readAsStringAsync(persistentUri, {
+    const base64 = manipResult.base64 || await FileSystem.readAsStringAsync(persistentUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
     

@@ -61,6 +61,24 @@ const cleanJsonString = (str: string) => {
   return cleaned.trim();
 };
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = 3): Promise<Response> => {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const response = await fetch(url, options);
+    // If it's a 429 Too Many Requests, wait and retry
+    if (response.status === 429) {
+      const waitTime = Math.min(8000, 1000 * Math.pow(2, attempt) + Math.random() * 1000);
+      logger.warn(LogCategory.AI, `Rate limited (429). Retrying in ${Math.round(waitTime)}ms... (Attempt ${attempt + 1}/${maxRetries})`);
+      await delay(waitTime);
+      continue;
+    }
+    return response;
+  }
+  // If we exhaust retries or it's not a 429, just do a final fetch or return the last response
+  return fetch(url, options);
+};
+
 
 const parseAndSalvageJson = (jsonString: string): BreakdownResult => {
   const cleaned = cleanJsonString(jsonString);
@@ -181,7 +199,7 @@ const analyzeWithGemini = async (base64Image: string, settings: Settings, signal
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-        const response = await fetch(url, {
+        const response = await fetchWithRetry(url, {
           method: 'POST',
           signal,
           headers: { 'Content-Type': 'application/json' },
@@ -200,6 +218,57 @@ const analyzeWithGemini = async (base64Image: string, settings: Settings, signal
             ],
             generationConfig: {
               response_mime_type: 'application/json',
+              response_schema: {
+                type: "OBJECT",
+                properties: {
+                  textRegions: {
+                    type: "ARRAY",
+                    items: {
+                      type: "OBJECT",
+                      properties: {
+                        text: { type: "STRING" },
+                        reading: { type: "STRING" },
+                        furiganaText: { type: "STRING" },
+                        translation: { type: "STRING" },
+                        boundingBox: {
+                          type: "ARRAY",
+                          items: { type: "INTEGER" }
+                        },
+                        vocabulary: {
+                          type: "ARRAY",
+                          items: {
+                            type: "OBJECT",
+                            properties: {
+                              word: { type: "STRING" },
+                              reading: { type: "STRING" },
+                              partOfSpeech: { type: "STRING" },
+                              meaning: { type: "STRING" },
+                              contextSentence: { type: "STRING" }
+                            },
+                            required: ["word", "reading", "partOfSpeech", "meaning", "contextSentence"]
+                          }
+                        },
+                        grammarPoints: {
+                          type: "ARRAY",
+                          items: {
+                            type: "OBJECT",
+                            properties: {
+                              pattern: { type: "STRING" },
+                              explanation: { type: "STRING" },
+                              exampleFromText: { type: "STRING" }
+                            },
+                            required: ["pattern", "explanation", "exampleFromText"]
+                          }
+                        }
+                      },
+                      required: ["text", "reading", "furiganaText", "translation", "boundingBox", "vocabulary", "grammarPoints"]
+                    }
+                  },
+                  fullTranslation: { type: "STRING" },
+                  contextNotes: { type: "STRING" }
+                },
+                required: ["textRegions", "fullTranslation"]
+              }
             }
           })
         });
@@ -253,7 +322,7 @@ const analyzeWithOpenAI = async (base64Image: string, settings: Settings, signal
     logger.info(LogCategory.AI, `Using OpenAI API with model: ${modelToUse}`);
     
     try {
-      const response = await fetch(url, {
+      const response = await fetchWithRetry(url, {
         method: 'POST',
         signal,
         headers: {
@@ -262,12 +331,13 @@ const analyzeWithOpenAI = async (base64Image: string, settings: Settings, signal
         },
         body: JSON.stringify({
           model: modelToUse,
+          response_format: { type: "json_object" },
           messages: [
             { role: 'system', content: getSystemPrompt(settings.japaneseLevel) },
             {
               role: 'user',
               content: [
-                { type: 'text', text: 'Analyze this manga page.' },
+                { type: 'text', text: 'Analyze this manga page. Output JSON format.' },
                 {
                   type: 'image_url',
                   image_url: { url: `data:image/jpeg;base64,${base64Image}` }

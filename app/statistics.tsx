@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as Haptics from 'expo-haptics';
 import { getVocabularyStatistics, getGrammarStatistics } from '../src/services/databaseService';
@@ -22,11 +22,8 @@ export default function StatisticsScreen() {
   const [grammarStats, setGrammarStats] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
   const loadData = async () => {
+    await Promise.resolve();
     setIsLoading(true);
     try {
       const vocab = await getVocabularyStatistics();
@@ -40,6 +37,10 @@ export default function StatisticsScreen() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const handleExport = () => {
     Alert.alert(
