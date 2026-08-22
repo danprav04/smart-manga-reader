@@ -42,6 +42,8 @@ You must structure your JSON into TWO phases:
 Phase 1: "textRegions" - Output all boxes and text quickly.
 Phase 2: "detailedAnalysis" - Output vocabulary and grammar linked by ID.
 
+CRITICAL: Output EXACTLY ONE JSON OBJECT. Do not output any markdown formatting like \`\`\`json. Do not output any conversational text before or after the JSON. Stop generating immediately after closing the JSON object.
+
 Your output must be a JSON object with exactly this structure:
 {
   "textRegions": [
@@ -473,6 +475,22 @@ const analyzeWithGemini = async (
                   
                   if (onProgress && (now - lastReportTime > 500)) {
                     lastReportTime = now;
+                    
+                    try {
+                      const cleaned = cleanJsonString(fullText);
+                      if (cleaned.endsWith('}')) {
+                        const parsed = JSON.parse(cleaned);
+                        if (parsed.textRegions && parsed.detailedAnalysis && parsed.contextNotes !== undefined) {
+                          logger.info(LogCategory.AI, "JSON fully formed, aggressively terminating stream.");
+                          isDone = true;
+                          es.removeAllEventListeners();
+                          es.close();
+                          resolve(fullText);
+                          return;
+                        }
+                      }
+                    } catch (e) {}
+
                     const partial = extractPartialBreakdown(fullText);
                     onProgress(mapParsedBreakdown(partial));
                   }
