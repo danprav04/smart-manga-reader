@@ -417,6 +417,10 @@ const analyzeWithGemini = async (
             });
 
             if (signal) {
+              if (signal.aborted) {
+                reject(new Error('Aborted'));
+                return;
+              }
               signal.addEventListener('abort', () => {
                 es.close();
                 reject(new Error('Aborted'));
@@ -481,7 +485,10 @@ const analyzeWithGemini = async (
         }
       }
       throw new Error(`Exhausted retries for model ${model}`);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'AbortError' || error.message?.includes('Aborted') || error.message?.includes('aborted')) {
+        throw error;
+      }
       logger.warn(LogCategory.AI, `Failed with model ${model}, trying next...`, error);
       lastError = error instanceof Error ? error : new Error(String(error));
     }
@@ -581,7 +588,10 @@ const analyzeWithOpenAI = async (
 
       logger.debug(LogCategory.AI, `Successfully received response from OpenAI model ${modelToUse}, parsing JSON...`);
       return parseAndSalvageJson(jsonString);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'AbortError' || error.message?.includes('Aborted') || error.message?.includes('aborted')) {
+        throw error;
+      }
       logger.warn(LogCategory.AI, `Failed with OpenAI model ${modelToUse}, trying next...`, error);
       lastError = error instanceof Error ? error : new Error(String(error));
     }
