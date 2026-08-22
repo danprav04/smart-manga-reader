@@ -13,6 +13,7 @@ interface BreakdownState {
 
 type Action =
   | { type: 'START_ANALYSIS' }
+  | { type: 'ANALYSIS_PROGRESS'; payload: { partialResult: BreakdownResult; screenshotUri: string | null } }
   | { type: 'ANALYSIS_COMPLETE'; payload: { result: BreakdownResult; screenshotUri: string | null } }
   | { type: 'ANALYSIS_ERROR'; payload: string }
   | { type: 'LOAD_CACHED'; payload: StoredBreakdown }
@@ -34,7 +35,15 @@ const breakdownReducer = (state: BreakdownState, action: Action): BreakdownState
   switch (action.type) {
     case 'START_ANALYSIS':
       logger.info(LogCategory.STORE, 'State -> START_ANALYSIS');
-      return { ...state, isAnalyzing: true };
+      return { ...state, isAnalyzing: true, currentBreakdown: null, overlayVisible: false };
+    case 'ANALYSIS_PROGRESS':
+      logger.info(LogCategory.STORE, `State -> ANALYSIS_PROGRESS (regions: ${action.payload.partialResult.textRegions?.length || 0})`);
+      return {
+        ...state,
+        currentBreakdown: action.payload.partialResult,
+        screenshotUri: action.payload.screenshotUri || state.screenshotUri,
+        overlayVisible: true,
+      };
     case 'ANALYSIS_COMPLETE':
       logger.info(LogCategory.STORE, 'State -> ANALYSIS_COMPLETE');
       return {

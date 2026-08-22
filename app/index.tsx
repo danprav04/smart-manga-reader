@@ -142,9 +142,17 @@ export default function ReaderScreen() {
       
       const { uri, base64 } = await captureWebView(viewShotRef.current);
       
-      const result = await analyzeScreenshot(base64, settings, abortControllerRef.current.signal);
-      
-      // Save to SQLite
+      const result = await analyzeScreenshot(
+        base64, 
+        settings, 
+        abortControllerRef.current.signal,
+        (partialResult) => {
+          dispatch({ 
+            type: 'ANALYSIS_PROGRESS', 
+            payload: { partialResult, screenshotUri: uri } 
+          });
+        }
+      );
       const domain = new URL(urlToAnalyze).hostname;
       await saveBreakdown(urlToAnalyze, domain, result, uri);
       logger.info(LogCategory.UI, `Analysis saved to database.`);

@@ -1,3 +1,4 @@
+import EventSource from 'react-native-sse';
 import { BreakdownResult, Settings } from '../types/breakdown';
 import { getGeminiApiKey, getOpenAIApiKey } from '../store/settingsStore';
 import { logger, LogCategory } from '../utils/logger';
@@ -80,33 +81,7 @@ const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = 3)
 };
 
 
-const parseAndSalvageJson = (jsonString: string): BreakdownResult => {
-  const cleaned = cleanJsonString(jsonString);
-  let parsed: any;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch (parseError: any) {
-    // Try to salvage the JSON if the model appended extra invalid text after contextNotes
-    try {
-      const match = cleaned.match(/(.*"contextNotes"\s*:\s*"(?:[^"\\]|\\.)*")/s);
-      if (match) {
-        const salvaged = match[1] + '\n}';
-        parsed = JSON.parse(salvaged);
-      }
-    } catch (e) {
-      // If salvage fails, fall through to throwing the original error
-    }
-    if (!parsed) {
-      throw new Error(`AI returned invalid format: ${jsonString}`);
-    }
-  }
-
-  // Support legacy format if model ignores instructions
-  if (parsed.vocabulary && parsed.grammarPoints) {
-    return parsed as BreakdownResult;
-  }
-
-  // Map from nested format
+const mapParsedBreakdown = (parsed: any): BreakdownResult => {
   const textRegions = parsed.textRegions || [];
   const mappedTextRegions: any[] = [];
   const vocabulary: any[] = [];
@@ -134,7 +109,6 @@ const parseAndSalvageJson = (jsonString: string): BreakdownResult => {
     }
   });
 
-  // Deduplicate vocabulary by word
   const seenWords = new Set<string>();
   const dedupedVocab: any[] = [];
   vocabulary.forEach(v => {
@@ -153,19 +127,102 @@ const parseAndSalvageJson = (jsonString: string): BreakdownResult => {
   };
 };
 
+const extractPartialBreakdown = (str: string): any => {
+  const result: any = { textRegions: [], fullTranslation: "", contextNotes: "" };
+  const arrayStart = str.indexOf('"textRegions"');
+  if (arrayStart === -1) return result;
+  
+  const bracketStart = str.indexOf('[', arrayStart);
+  if (bracketStart === -1) return result;
+  
+  let depth = 0;
+  let inString = false;
+  let escapeNext = false;
+  let objectStart = -1;
+  const objects: any[] = [];
+  
+  for (let i = bracketStart + 1; i < str.length; i++) {
+    const char = str[i];
+    
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+    
+    if (char === '\\') {
+      escapeNext = true;
+      continue;
+    }
+    
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    
+    if (!inString) {
+      if (char === '{') {
+        if (depth === 0) {
+          objectStart = i;
+        }
+        depth++;
+      } else if (char === '}') {
+        depth--;
+        if (depth === 0 && objectStart !== -1) {
+          const objStr = str.substring(objectStart, i + 1);
+          try {
+            objects.push(JSON.parse(objStr));
+          } catch (e) {
+            // Partial or malformed
+          }
+          objectStart = -1;
+        }
+      }
+    }
+  }
+  
+  result.textRegions = objects;
+  return result;
+};
+
+const parseAndSalvageJson = (jsonString: string): BreakdownResult => {
+  const cleaned = cleanJsonString(jsonString);
+  let parsed: any;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (parseError: any) {
+    try {
+      const match = cleaned.match(/(.*"contextNotes"\s*:\s*"(?:[^"\\]|\\.)*")/s);
+      if (match) {
+        const salvaged = match[1] + '\n}';
+        parsed = JSON.parse(salvaged);
+      }
+    } catch (e) {}
+    if (!parsed) {
+      throw new Error(`AI returned invalid format: ${jsonString}`);
+    }
+  }
+
+  if (parsed.vocabulary && parsed.grammarPoints) {
+    return parsed as BreakdownResult;
+  }
+
+  return mapParsedBreakdown(parsed);
+};
+
 export const analyzeScreenshot = async (
   base64Image: string,
   settings: Settings,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onProgress?: (partialResult: BreakdownResult) => void
 ): Promise<BreakdownResult> => {
   logger.info(LogCategory.AI, `Starting analysis. Provider: ${settings.aiProvider}, Base64 size: ${base64Image.length} chars`);
   try {
     const startTime = Date.now();
     let result: BreakdownResult;
     if (settings.aiProvider === 'gemini') {
-      result = await analyzeWithGemini(base64Image, settings, signal);
+      result = await analyzeWithGemini(base64Image, settings, signal, onProgress);
     } else {
-      result = await analyzeWithOpenAI(base64Image, settings, signal);
+      result = await analyzeWithOpenAI(base64Image, settings, signal, onProgress);
     }
     const elapsed = Date.now() - startTime;
     logger.info(LogCategory.AI, `Analysis completed successfully in ${elapsed}ms. Found ${result.textRegions?.length || 0} text regions.`);
@@ -176,7 +233,12 @@ export const analyzeScreenshot = async (
   }
 };
 
-const analyzeWithGemini = async (base64Image: string, settings: Settings, signal?: AbortSignal): Promise<BreakdownResult> => {
+const analyzeWithGemini = async (
+  base64Image: string, 
+  settings: Settings, 
+  signal?: AbortSignal,
+  onProgress?: (partialResult: BreakdownResult) => void
+): Promise<BreakdownResult> => {
   const apiKey = await getGeminiApiKey();
   if (!apiKey) throw new Error('Gemini API key is not set');
 
@@ -185,7 +247,6 @@ const analyzeWithGemini = async (base64Image: string, settings: Settings, signal
     : ['gemini-3.1-flash', 'gemini-3.5-flash'];
   const modelsToTry = [settings.geminiModel || 'gemini-3.1-flash'];
   
-  // Add the default sequence as fallbacks, removing duplicates
   for (const model of defaultSequence) {
     if (!modelsToTry.includes(model)) {
       modelsToTry.push(model);
@@ -194,119 +255,163 @@ const analyzeWithGemini = async (base64Image: string, settings: Settings, signal
 
   let lastError: Error | null = null;
 
-    for (const model of modelsToTry) {
-      logger.info(LogCategory.AI, `Trying Gemini model: ${model}`);
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-        logger.info(LogCategory.AI, `[TIMING] Sending fetch request to Gemini API for ${model}...`);
-        const fetchStartTime = Date.now();
-
-        const response = await fetchWithRetry(url, {
-          method: 'POST',
-          signal,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            system_instruction: {
-              parts: [{ text: getSystemPrompt(settings.japaneseLevel) }]
-            },
-            contents: [
-              {
-                role: 'user',
-                parts: [
-                  { text: 'Analyze this manga page.' },
-                  { inline_data: { mime_type: 'image/jpeg', data: base64Image } }
-                ]
-              }
-            ],
-            generationConfig: {
-              response_mime_type: 'application/json',
-              response_schema: {
-                type: "OBJECT",
-                properties: {
-                  textRegions: {
-                    type: "ARRAY",
-                    items: {
-                      type: "OBJECT",
-                      properties: {
-                        text: { type: "STRING" },
-                        reading: { type: "STRING" },
-                        furiganaText: { type: "STRING" },
-                        translation: { type: "STRING" },
-                        boundingBox: {
-                          type: "ARRAY",
-                          items: { type: "INTEGER" }
+  for (const model of modelsToTry) {
+    logger.info(LogCategory.AI, `Trying Gemini model: ${model} with Streaming`);
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent`;
+      
+      const payload = {
+        system_instruction: { parts: [{ text: getSystemPrompt(settings.japaneseLevel) }] },
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: 'Analyze this manga page.' },
+              { inline_data: { mime_type: 'image/jpeg', data: base64Image } }
+            ]
+          }
+        ],
+        generationConfig: {
+          response_mime_type: 'application/json',
+          response_schema: {
+            type: "OBJECT",
+            properties: {
+              textRegions: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    text: { type: "STRING" },
+                    reading: { type: "STRING" },
+                    furiganaText: { type: "STRING" },
+                    translation: { type: "STRING" },
+                    boundingBox: { type: "ARRAY", items: { type: "INTEGER" } },
+                    vocabulary: {
+                      type: "ARRAY",
+                      items: {
+                        type: "OBJECT",
+                        properties: {
+                          word: { type: "STRING" },
+                          reading: { type: "STRING" },
+                          partOfSpeech: { type: "STRING" },
+                          meaning: { type: "STRING" },
+                          contextSentence: { type: "STRING" }
                         },
-                        vocabulary: {
-                          type: "ARRAY",
-                          items: {
-                            type: "OBJECT",
-                            properties: {
-                              word: { type: "STRING" },
-                              reading: { type: "STRING" },
-                              partOfSpeech: { type: "STRING" },
-                              meaning: { type: "STRING" },
-                              contextSentence: { type: "STRING" }
-                            },
-                            required: ["word", "reading", "partOfSpeech", "meaning", "contextSentence"]
-                          }
+                        required: ["word", "reading", "partOfSpeech", "meaning", "contextSentence"]
+                      }
+                    },
+                    grammarPoints: {
+                      type: "ARRAY",
+                      items: {
+                        type: "OBJECT",
+                        properties: {
+                          pattern: { type: "STRING" },
+                          explanation: { type: "STRING" },
+                          exampleFromText: { type: "STRING" }
                         },
-                        grammarPoints: {
-                          type: "ARRAY",
-                          items: {
-                            type: "OBJECT",
-                            properties: {
-                              pattern: { type: "STRING" },
-                              explanation: { type: "STRING" },
-                              exampleFromText: { type: "STRING" }
-                            },
-                            required: ["pattern", "explanation", "exampleFromText"]
-                          }
-                        }
-                      },
-                      required: ["text", "reading", "furiganaText", "translation", "boundingBox", "vocabulary", "grammarPoints"]
+                        required: ["pattern", "explanation", "exampleFromText"]
+                      }
                     }
                   },
-                  fullTranslation: { type: "STRING" },
-                  contextNotes: { type: "STRING" }
-                },
-                required: ["textRegions", "fullTranslation"]
-              }
+                  required: ["text", "reading", "furiganaText", "translation", "boundingBox", "vocabulary", "grammarPoints"]
+                }
+              },
+              fullTranslation: { type: "STRING" },
+              contextNotes: { type: "STRING" }
+            },
+            required: ["textRegions", "fullTranslation"]
+          }
+        }
+      };
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const jsonString = await new Promise<string>((resolve, reject) => {
+            let fullText = '';
+            let isDone = false;
+            let lastReportedCount = 0;
+            
+            const es = new EventSource(`${url}?alt=sse&key=${apiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+
+            if (signal) {
+              signal.addEventListener('abort', () => {
+                es.close();
+                reject(new Error('Aborted'));
+              });
             }
-          })
-        });
 
-        const fetchElapsed = Date.now() - fetchStartTime;
-        logger.info(LogCategory.AI, `[TIMING] Received headers from Gemini API in ${fetchElapsed}ms.`);
+            es.addEventListener('message', (event: any) => {
+              if (event.data) {
+                try {
+                  const data = JSON.parse(event.data);
+                  const chunk = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                  fullText += chunk;
+                  
+                  if (onProgress) {
+                    const partial = extractPartialBreakdown(fullText);
+                    const currentCount = partial.textRegions?.length || 0;
+                    if (currentCount > lastReportedCount) {
+                      lastReportedCount = currentCount;
+                      onProgress(mapParsedBreakdown(partial));
+                    }
+                  }
+                } catch (e) {
+                  // Ignore JSON parse errors for chunks
+                }
+              }
+            });
 
-        if (!response.ok) {
-          const err = await response.text();
-          logger.warn(LogCategory.AI, `Gemini API error with model ${model}: status ${response.status}`);
-          throw new Error(`Gemini API error with model ${model}: ${err}`);
+            es.addEventListener('error', (err: any) => {
+              es.removeAllEventListeners();
+              es.close();
+              if (!isDone) {
+                const status = err.status || err.type;
+                reject(new Error(`Stream error: ${status}`));
+              }
+            });
+
+            es.addEventListener('close', () => {
+              isDone = true;
+              es.removeAllEventListeners();
+              es.close();
+              resolve(fullText);
+            });
+          });
+
+          logger.debug(LogCategory.AI, `Successfully received complete stream from ${model}, parsing JSON...`);
+          return parseAndSalvageJson(jsonString);
+
+        } catch (err: any) {
+          const errMsg = err.message || '';
+          if (errMsg.includes('429')) {
+            const waitTime = Math.min(8000, 1000 * Math.pow(2, attempt) + Math.random() * 1000);
+            logger.warn(LogCategory.AI, `Rate limited (429) on stream. Retrying in ${Math.round(waitTime)}ms...`);
+            await delay(waitTime);
+            continue;
+          }
+          throw err;
         }
-
-        const parseStartTime = Date.now();
-        const data = await response.json();
-        logger.info(LogCategory.AI, `[TIMING] Downloaded & parsed JSON response body in ${Date.now() - parseStartTime}ms.`);
-
-        const jsonString = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!jsonString) {
-          logger.warn(LogCategory.AI, `Invalid response format from Gemini model ${model}`);
-          throw new Error(`Invalid response from Gemini model ${model}`);
-        }
-
-        logger.debug(LogCategory.AI, `Successfully received response from ${model}, parsing JSON...`);
-        return parseAndSalvageJson(jsonString);
-      } catch (error) {
-        logger.warn(LogCategory.AI, `Failed with model ${model}, trying next...`, error);
-        lastError = error instanceof Error ? error : new Error(String(error));
       }
+      throw new Error(`Exhausted retries for model ${model}`);
+    } catch (error) {
+      logger.warn(LogCategory.AI, `Failed with model ${model}, trying next...`, error);
+      lastError = error instanceof Error ? error : new Error(String(error));
     }
+  }
 
   throw lastError || new Error('All fallback models failed');
 };
 
-const analyzeWithOpenAI = async (base64Image: string, settings: Settings, signal?: AbortSignal): Promise<BreakdownResult> => {
+const analyzeWithOpenAI = async (
+  base64Image: string, 
+  settings: Settings, 
+  signal?: AbortSignal,
+  onProgress?: (partialResult: BreakdownResult) => void
+): Promise<BreakdownResult> => {
   const apiKey = await getOpenAIApiKey();
   if (!apiKey) throw new Error('OpenAI API key is not set');
 
