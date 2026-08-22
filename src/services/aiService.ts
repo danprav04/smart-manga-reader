@@ -199,6 +199,9 @@ const analyzeWithGemini = async (base64Image: string, settings: Settings, signal
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
+        logger.info(LogCategory.AI, `[TIMING] Sending fetch request to Gemini API for ${model}...`);
+        const fetchStartTime = Date.now();
+
         const response = await fetchWithRetry(url, {
           method: 'POST',
           signal,
@@ -273,13 +276,19 @@ const analyzeWithGemini = async (base64Image: string, settings: Settings, signal
           })
         });
 
+        const fetchElapsed = Date.now() - fetchStartTime;
+        logger.info(LogCategory.AI, `[TIMING] Received headers from Gemini API in ${fetchElapsed}ms.`);
+
         if (!response.ok) {
           const err = await response.text();
           logger.warn(LogCategory.AI, `Gemini API error with model ${model}: status ${response.status}`);
           throw new Error(`Gemini API error with model ${model}: ${err}`);
         }
 
+        const parseStartTime = Date.now();
         const data = await response.json();
+        logger.info(LogCategory.AI, `[TIMING] Downloaded & parsed JSON response body in ${Date.now() - parseStartTime}ms.`);
+
         const jsonString = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!jsonString) {
           logger.warn(LogCategory.AI, `Invalid response format from Gemini model ${model}`);
