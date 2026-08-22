@@ -36,7 +36,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
           setSettings((prev) => ({ ...prev, ...JSON.parse(storedSettings) }));
         }
       } catch (e) {
-        console.error('Failed to load settings', e);
+        console.warn('Failed to load settings', e);
       } finally {
         setIsLoading(false);
       }
@@ -50,7 +50,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     try {
       await AsyncStorage.setItem('@settings', JSON.stringify(updated));
     } catch (e) {
-      console.error('Failed to save settings', e);
+      console.warn('Failed to save settings', e);
     }
   };
 

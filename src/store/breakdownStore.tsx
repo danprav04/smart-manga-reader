@@ -57,7 +57,7 @@ const breakdownReducer = (state: BreakdownState, action: Action): BreakdownState
         hasCachedBreakdown: true,
       };
     case 'ANALYSIS_ERROR':
-      logger.error(LogCategory.STORE, `State -> ANALYSIS_ERROR: ${action.payload}`);
+      logger.warn(LogCategory.STORE, `State -> ANALYSIS_ERROR: ${action.payload}`);
       return { ...state, isAnalyzing: false };
     case 'LOAD_CACHED':
       logger.info(LogCategory.STORE, 'State -> LOAD_CACHED');

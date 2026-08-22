@@ -293,7 +293,7 @@ export const analyzeScreenshot = async (
     logger.info(LogCategory.AI, `Analysis completed successfully in ${elapsed}ms. Found ${result.textRegions?.length || 0} text regions.`);
     return result;
   } catch (e: any) {
-    logger.error(LogCategory.AI, `Analysis failed: ${e.message}`, e);
+    logger.warn(LogCategory.AI, `Analysis failed: ${e.message}`, e);
     throw e;
   }
 };
@@ -456,7 +456,7 @@ const analyzeWithGemini = async (
               es.close();
               if (!isDone) {
                 const status = err.status || err.type;
-                logger.error(LogCategory.AI, `Stream error after ${Date.now() - requestStartTime}ms: ${status}`);
+                logger.warn(LogCategory.AI, `Stream error after ${Date.now() - requestStartTime}ms: ${status}`);
                 reject(new Error(`Stream error: ${status}`));
               }
             });

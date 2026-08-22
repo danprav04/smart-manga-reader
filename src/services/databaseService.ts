@@ -81,7 +81,7 @@ export const initDatabase = async (): Promise<void> => {
       await db.execAsync(`ALTER TABLE text_regions ADD COLUMN furigana_text TEXT;`);
     }
   } catch (e) {
-    console.error('Failed to migrate text_regions table', e);
+    console.warn('Failed to migrate text_regions table', e);
   }
 
   // Migration for old databases to drop UNIQUE constraint on pages.url
@@ -107,7 +107,7 @@ export const initDatabase = async (): Promise<void> => {
       `);
     }
   } catch (e) {
-    console.error('Failed to migrate pages table to drop UNIQUE constraint', e);
+    console.warn('Failed to migrate pages table to drop UNIQUE constraint', e);
   }
 };
 

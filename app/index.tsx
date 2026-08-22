@@ -169,7 +169,7 @@ export default function ReaderScreen() {
         logger.info(LogCategory.UI, "Analysis aborted by user");
         dispatch({ type: 'ANALYSIS_ERROR', payload: "Aborted" });
       } else {
-        logger.error(LogCategory.UI, "Analysis failed", e);
+        logger.warn(LogCategory.UI, "Analysis failed", e);
         Alert.alert("Analysis Failed", e.message || "Something went wrong.");
         dispatch({ type: 'ANALYSIS_ERROR', payload: e.message });
       }

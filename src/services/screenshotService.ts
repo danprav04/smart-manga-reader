@@ -42,7 +42,7 @@ export const captureWebView = async (viewRef: any): Promise<{ uri: string; base6
 
     return { uri: persistentUri, base64 };
   } catch (error) {
-    logger.error(LogCategory.SCREENSHOT, 'Failed to capture screenshot', error);
+    logger.warn(LogCategory.SCREENSHOT, 'Failed to capture screenshot', error);
     throw error;
   }
 };
