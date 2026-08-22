@@ -39,6 +39,9 @@ export default function ReaderScreen() {
 
   React.useEffect(() => {
     const onBackPress = () => {
+      if (state.isAnalyzing) {
+        return true; // Block hardware back button while analyzing
+      }
       if (canGoBack && webViewRef.current) {
         webViewRef.current.goBack();
         return true;
@@ -47,7 +50,7 @@ export default function ReaderScreen() {
     };
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
-  }, [canGoBack]);
+  }, [canGoBack, state.isAnalyzing]);
 
   const handleNavigationStateChange = async (navState: any) => {
     if (navState.loading) {
@@ -289,6 +292,15 @@ export default function ReaderScreen() {
           }
         />
       </ViewShot>
+
+      {/* Block all touches to the WebView while analyzing, but allow FAB to be pressed */}
+      {state.isAnalyzing && !state.overlayVisible && (
+        <View 
+          style={[StyleSheet.absoluteFill, { zIndex: 5, elevation: 5, backgroundColor: 'transparent' }]} 
+          pointerEvents="auto"
+          onTouchStart={(e) => e.stopPropagation()}
+        />
+      )}
 
       {/* Overlay + BreakdownSheet rendered in a Modal — guarantees a separate
           Android Window that paints above the WebView's SurfaceView. */}
