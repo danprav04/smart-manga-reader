@@ -13,20 +13,28 @@ CRITICAL INSTRUCTIONS FOR EXHAUSTIVE EXTRACTION:
 1. You MUST extract EVERY SINGLE text region visible in the manga image (speech bubbles, narration, sound effects, background text). Do NOT skip, summarize, or group distinct bubbles together.
 2. For EVERY text region you identify, you MUST provide its original Japanese text, reading, translation, and bounding box. 
    - The bounding box MUST be a 4-element array [ymin, xmin, ymax, xmax] using normalized integer coordinates (0 to 1000). ymin is top, xmin is left, ymax is bottom, xmax is right. Box must tightly wrap the text.
-3. You MUST provide at least one vocabulary item and one grammar point for EVERY sentence or text region inside its specific "vocabulary" and "grammarPoints" arrays, unless it is a simple sound effect or a single character without grammatical context.
-4. DO NOT be lazy. If there are 10 text bubbles, there MUST be 10 text regions extracted, and corresponding vocabulary and grammar for all 10. Do not omit details to save space.
+3. You MUST provide at least one vocabulary item and one grammar point for EVERY sentence or text region inside its specific "vocabulary" and "grammarPoints" arrays in the detailedAnalysis section.
+4. DO NOT be lazy. If there are 10 text bubbles, there MUST be 10 text regions extracted, and corresponding detailed analysis for all 10. Do not omit details to save space.
 
-Provide a full natural English translation of the entire page at the end.
+You must structure your JSON into TWO phases:
+Phase 1: "textRegions" - Output all boxes and text quickly.
+Phase 2: "detailedAnalysis" - Output vocabulary and grammar linked by ID.
 
 Your output must be a JSON object with exactly this structure:
 {
   "textRegions": [
     {
+      "id": 1,
       "text": "...",
       "reading": "...",
       "furiganaText": "The original text but with readings ONLY for Kanji and Katakana formatted as {Base|Reading}. Do not add readings for Hiragana. Example: {俺|おれ}{今日|きょう}{初|はじ}めて{喋|しゃべ}ったわ",
       "translation": "...",
-      "boundingBox": [ymin, xmin, ymax, xmax],
+      "boundingBox": [ymin, xmin, ymax, xmax]
+    }
+  ],
+  "detailedAnalysis": [
+    {
+      "id": 1,
       "vocabulary": [
         { "word": "...", "reading": "...", "partOfSpeech": "...", "meaning": "...", "contextSentence": "..." }
       ],
@@ -83,6 +91,8 @@ const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = 3)
 
 const mapParsedBreakdown = (parsed: any): BreakdownResult => {
   const textRegions = parsed.textRegions || [];
+  const detailedAnalysis = parsed.detailedAnalysis || [];
+  
   const mappedTextRegions: any[] = [];
   const vocabulary: any[] = [];
   const grammarPoints: any[] = [];
@@ -96,14 +106,16 @@ const mapParsedBreakdown = (parsed: any): BreakdownResult => {
       boundingBox: region.boundingBox || [0, 0, 0, 0]
     });
 
-    if (Array.isArray(region.vocabulary)) {
-      region.vocabulary.forEach((v: any) => {
+    const details = detailedAnalysis.find((d: any) => d.id === region.id) || region;
+
+    if (Array.isArray(details.vocabulary)) {
+      details.vocabulary.forEach((v: any) => {
         vocabulary.push({ ...v, regionIndex: index });
       });
     }
 
-    if (Array.isArray(region.grammarPoints)) {
-      region.grammarPoints.forEach((g: any) => {
+    if (Array.isArray(details.grammarPoints)) {
+      details.grammarPoints.forEach((g: any) => {
         grammarPoints.push({ ...g, regionIndex: index });
       });
     }
@@ -127,15 +139,15 @@ const mapParsedBreakdown = (parsed: any): BreakdownResult => {
   };
 };
 
-const extractPartialBreakdown = (str: string): any => {
-  const result: any = { textRegions: [], fullTranslation: "", contextNotes: "" };
-  const arrayStart = str.indexOf('"textRegions"');
-  if (arrayStart === -1) return result;
+const extractArrayObjects = (str: string, keyName: string): any[] => {
+  const arrayStart = str.indexOf(keyName);
+  if (arrayStart === -1) return [];
   
   const bracketStart = str.indexOf('[', arrayStart);
-  if (bracketStart === -1) return result;
+  if (bracketStart === -1) return [];
   
   let depth = 0;
+  let arrayDepth = 1;
   let inString = false;
   let escapeNext = false;
   let objectStart = -1;
@@ -148,22 +160,27 @@ const extractPartialBreakdown = (str: string): any => {
       escapeNext = false;
       continue;
     }
-    
     if (char === '\\') {
       escapeNext = true;
       continue;
     }
-    
     if (char === '"') {
       inString = !inString;
       continue;
     }
     
     if (!inString) {
-      if (char === '{') {
+      if (char === '[') {
+        if (depth === 0) arrayDepth++;
+      } else if (char === ']') {
         if (depth === 0) {
-          objectStart = i;
+          arrayDepth--;
+          if (arrayDepth === 0) break;
         }
+      }
+      
+      if (char === '{') {
+        if (depth === 0) objectStart = i;
         depth++;
       } else if (char === '}') {
         depth--;
@@ -180,7 +197,21 @@ const extractPartialBreakdown = (str: string): any => {
     }
   }
   
-  result.textRegions = objects;
+  return objects;
+};
+
+const extractPartialBreakdown = (str: string): any => {
+  const result: any = { textRegions: [], fullTranslation: "", contextNotes: "" };
+  
+  const textRegions = extractArrayObjects(str, '"textRegions"');
+  const detailedAnalysis = extractArrayObjects(str, '"detailedAnalysis"');
+
+  const mergedRegions = textRegions.map(tr => {
+    const details = detailedAnalysis.find(d => d.id === tr.id) || { vocabulary: [], grammarPoints: [] };
+    return { ...tr, ...details };
+  });
+
+  result.textRegions = mergedRegions;
   return result;
 };
 
@@ -281,11 +312,22 @@ const analyzeWithGemini = async (
                 items: {
                   type: "OBJECT",
                   properties: {
+                    id: { type: "INTEGER" },
                     text: { type: "STRING" },
                     reading: { type: "STRING" },
                     furiganaText: { type: "STRING" },
                     translation: { type: "STRING" },
-                    boundingBox: { type: "ARRAY", items: { type: "INTEGER" } },
+                    boundingBox: { type: "ARRAY", items: { type: "INTEGER" } }
+                  },
+                  required: ["id", "text", "reading", "furiganaText", "translation", "boundingBox"]
+                }
+              },
+              detailedAnalysis: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    id: { type: "INTEGER" },
                     vocabulary: {
                       type: "ARRAY",
                       items: {
@@ -313,13 +355,13 @@ const analyzeWithGemini = async (
                       }
                     }
                   },
-                  required: ["text", "reading", "furiganaText", "translation", "boundingBox", "vocabulary", "grammarPoints"]
+                  required: ["id", "vocabulary", "grammarPoints"]
                 }
               },
               fullTranslation: { type: "STRING" },
               contextNotes: { type: "STRING" }
             },
-            required: ["textRegions", "fullTranslation"]
+            required: ["textRegions", "detailedAnalysis", "fullTranslation"]
           }
         }
       };
