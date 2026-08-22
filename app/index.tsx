@@ -165,7 +165,7 @@ export default function ReaderScreen() {
       lastAnalyzedScrollY.current = currentScrollY;
       dispatch({ type: 'ANALYSIS_COMPLETE', payload: { result, screenshotUri: uri } });
     } catch (e: any) {
-      if (e.name === 'AbortError' || e.message?.includes('aborted')) {
+      if (e.name === 'AbortError' || e.message?.includes('Aborted') || e.message?.includes('aborted')) {
         logger.info(LogCategory.UI, "Analysis aborted by user");
         dispatch({ type: 'ANALYSIS_ERROR', payload: "Aborted" });
       } else {

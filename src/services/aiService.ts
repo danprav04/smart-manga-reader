@@ -313,6 +313,10 @@ export const analyzeScreenshot = async (
   try {
     const startTime = Date.now();
     
+    if (signal?.aborted) {
+      throw new Error('Aborted');
+    }
+
     // 1. Kick off Fast Pass if streaming is requested
     if (onProgress) {
       try {
@@ -321,9 +325,16 @@ export const analyzeScreenshot = async (
         } else {
           await analyzeWithOpenAI(base64Image, settings, signal, onProgress, true);
         }
-      } catch (e) {
+      } catch (e: any) {
+        if (e.name === 'AbortError' || e.message?.includes('Aborted') || e.message?.includes('aborted')) {
+          throw e;
+        }
         logger.warn(LogCategory.AI, "Fast pass failed, falling back to Deep pass exclusively", e);
       }
+    }
+
+    if (signal?.aborted) {
+      throw new Error('Aborted');
     }
 
     // 2. Await Deep Pass

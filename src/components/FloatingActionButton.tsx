@@ -127,6 +127,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 12,
     elevation: 8,
+    zIndex: 50,
     overflow: 'hidden',
   },
   blurContainer: {
