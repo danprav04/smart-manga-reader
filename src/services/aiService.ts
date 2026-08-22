@@ -19,6 +19,7 @@ Your output must be a JSON object with exactly this structure:
   ]
 }
 - The bounding box MUST be a 4-element array [ymin, xmin, ymax, xmax] using normalized integer coordinates (0 to 1000). Box must tightly wrap the text.
+- CRITICAL: Output EXACTLY ONE JSON OBJECT. Do not repeat the JSON object. Stop generating immediately after closing the first JSON object.
 `;
 
 const getSystemPrompt = (japaneseLevel: string) => `
@@ -313,36 +314,63 @@ export const analyzeScreenshot = async (
   try {
     const startTime = Date.now();
     
-    if (signal?.aborted) {
-      throw new Error('Aborted');
+    let deepPassStarted = false;
+    const fastPassAbortController = new AbortController();
+    
+    // Wire up parent signal to abort fast pass if parent aborts
+    const handleParentAbort = () => fastPassAbortController.abort();
+    if (signal) {
+      signal.addEventListener('abort', handleParentAbort);
     }
-
-    // 1. Kick off Fast Pass if streaming is requested
-    if (onProgress) {
-      try {
-        if (settings.aiProvider === 'gemini') {
-          await analyzeWithGemini(base64Image, settings, signal, onProgress, true);
-        } else {
-          await analyzeWithOpenAI(base64Image, settings, signal, onProgress, true);
-        }
-      } catch (e: any) {
-        if (e.name === 'AbortError' || e.message?.includes('Aborted') || e.message?.includes('aborted')) {
-          throw e;
-        }
-        logger.warn(LogCategory.AI, "Fast pass failed, falling back to Deep pass exclusively", e);
+    
+    // Custom progress handler for fast pass to prevent overwriting deep pass
+    const fastPassOnProgress = (partialResult: BreakdownResult) => {
+      if (!deepPassStarted && onProgress) {
+        onProgress(partialResult);
       }
+    };
+
+    // 1. Kick off Fast Pass in parallel
+    if (onProgress) {
+      const runFastPass = async () => {
+        try {
+          if (settings.aiProvider === 'gemini') {
+            await analyzeWithGemini(base64Image, settings, fastPassAbortController.signal, fastPassOnProgress, true);
+          } else {
+            await analyzeWithOpenAI(base64Image, settings, fastPassAbortController.signal, fastPassOnProgress, true);
+          }
+        } catch (e: any) {
+          if (e.name !== 'AbortError' && !e.message?.includes('Aborted') && !e.message?.includes('aborted')) {
+            logger.warn(LogCategory.AI, "Fast pass failed", e);
+          }
+        }
+      };
+      runFastPass();
     }
 
-    if (signal?.aborted) {
-      throw new Error('Aborted');
-    }
+    // Custom progress handler for deep pass
+    const deepPassOnProgress = (partialResult: BreakdownResult) => {
+      if (!deepPassStarted) {
+        deepPassStarted = true;
+        fastPassAbortController.abort(); // Kill fast pass stream
+        logger.info(LogCategory.AI, "Deep pass started streaming. Aborted fast pass.");
+      }
+      if (onProgress) {
+        onProgress(partialResult);
+      }
+    };
 
-    // 2. Await Deep Pass
+    // 2. Run Deep Pass
     let result: BreakdownResult;
-    if (settings.aiProvider === 'gemini') {
-      result = await analyzeWithGemini(base64Image, settings, signal, onProgress, false);
-    } else {
-      result = await analyzeWithOpenAI(base64Image, settings, signal, onProgress, false);
+    try {
+      if (settings.aiProvider === 'gemini') {
+        result = await analyzeWithGemini(base64Image, settings, signal, deepPassOnProgress, false);
+      } else {
+        result = await analyzeWithOpenAI(base64Image, settings, signal, deepPassOnProgress, false);
+      }
+    } finally {
+      if (signal) signal.removeEventListener('abort', handleParentAbort);
+      if (!deepPassStarted) fastPassAbortController.abort();
     }
     
     const elapsed = Date.now() - startTime;
