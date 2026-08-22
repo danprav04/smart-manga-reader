@@ -18,6 +18,7 @@ type Action =
   | { type: 'ANALYSIS_ERROR'; payload: string }
   | { type: 'LOAD_CACHED'; payload: StoredBreakdown }
   | { type: 'DISMISS_OVERLAY' }
+  | { type: 'REOPEN_OVERLAY' }
   | { type: 'INVALIDATE_CACHE' }
   | { type: 'SET_URL'; payload: { url: string; hasCache: boolean } };
 
@@ -42,7 +43,8 @@ const breakdownReducer = (state: BreakdownState, action: Action): BreakdownState
         ...state,
         currentBreakdown: action.payload.partialResult,
         screenshotUri: action.payload.screenshotUri || state.screenshotUri,
-        overlayVisible: true,
+        // Only force open if we just started tracking it (when we didn't have a breakdown yet), otherwise keep user preference
+        overlayVisible: state.currentBreakdown === null ? true : state.overlayVisible,
       };
     case 'ANALYSIS_COMPLETE':
       logger.info(LogCategory.STORE, 'State -> ANALYSIS_COMPLETE');
@@ -51,7 +53,7 @@ const breakdownReducer = (state: BreakdownState, action: Action): BreakdownState
         isAnalyzing: false,
         currentBreakdown: action.payload.result,
         screenshotUri: action.payload.screenshotUri,
-        overlayVisible: true,
+        overlayVisible: state.currentBreakdown === null ? true : state.overlayVisible,
         hasCachedBreakdown: true,
       };
     case 'ANALYSIS_ERROR':
@@ -68,6 +70,9 @@ const breakdownReducer = (state: BreakdownState, action: Action): BreakdownState
     case 'DISMISS_OVERLAY':
       logger.info(LogCategory.STORE, 'State -> DISMISS_OVERLAY');
       return { ...state, overlayVisible: false };
+    case 'REOPEN_OVERLAY':
+      logger.info(LogCategory.STORE, 'State -> REOPEN_OVERLAY');
+      return { ...state, overlayVisible: true };
     case 'INVALIDATE_CACHE':
       logger.info(LogCategory.STORE, 'State -> INVALIDATE_CACHE (User scrolled, disabling current viewport cache)');
       return { ...state, hasCachedBreakdown: false };

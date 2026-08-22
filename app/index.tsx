@@ -105,7 +105,12 @@ export default function ReaderScreen() {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const performAnalysis = async (urlToAnalyze: string, reanalyze = false) => {
-    if (state.isAnalyzing) return;
+    if (state.isAnalyzing) {
+      if (!state.overlayVisible && state.currentBreakdown) {
+        dispatch({ type: 'REOPEN_OVERLAY' } as any);
+      }
+      return;
+    }
     
     logger.info(LogCategory.UI, `performAnalysis called for ${urlToAnalyze}. Reanalyze: ${reanalyze}, HasCache: ${state.hasCachedBreakdown}`);
 

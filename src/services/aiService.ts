@@ -25,11 +25,11 @@ Your output must be a JSON object with exactly this structure:
   "textRegions": [
     {
       "id": 1,
+      "boundingBox": [ymin, xmin, ymax, xmax],
       "text": "...",
       "reading": "...",
       "furiganaText": "The original text but with readings ONLY for Kanji and Katakana formatted as {Base|Reading}. Do not add readings for Hiragana. Example: {俺|おれ}{今日|きょう}{初|はじ}めて{喋|しゃべ}ったわ",
-      "translation": "...",
-      "boundingBox": [ymin, xmin, ymax, xmax]
+      "translation": "..."
     }
   ],
   "detailedAnalysis": [
@@ -206,12 +206,46 @@ const extractPartialBreakdown = (str: string): any => {
   const textRegions = extractArrayObjects(str, '"textRegions"');
   const detailedAnalysis = extractArrayObjects(str, '"detailedAnalysis"');
 
-  const mergedRegions = textRegions.map(tr => {
-    const details = detailedAnalysis.find(d => d.id === tr.id) || { vocabulary: [], grammarPoints: [] };
-    return { ...tr, ...details };
+  const allBoxes: any[] = [];
+  // Extract all boxes that are currently streaming using regex
+  const boxMatches = str.matchAll(/"id"\s*:\s*(\d+).*?"boundingBox"\s*:\s*\[\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]/gs);
+  for (const match of boxMatches) {
+    allBoxes.push({
+      id: parseInt(match[1]),
+      boundingBox: [parseInt(match[2]), parseInt(match[3]), parseInt(match[4]), parseInt(match[5])],
+      text: "",
+      reading: "",
+      furiganaText: "",
+      translation: ""
+    });
+  }
+
+  // Merge the fully parsed regions over the fast-extracted ones, preferring fully parsed properties
+  const mergedRegions = allBoxes.map(box => {
+    const completeRegion = textRegions.find((r: any) => r.id === box.id);
+    const details = detailedAnalysis.find((d: any) => d.id === box.id) || { vocabulary: [], grammarPoints: [] };
+    
+    // Ensure we don't overwrite valid text with empty string if completeRegion doesn't have it
+    const finalRegion = { ...box, ...details };
+    if (completeRegion) {
+      if (completeRegion.text) finalRegion.text = completeRegion.text;
+      if (completeRegion.reading) finalRegion.reading = completeRegion.reading;
+      if (completeRegion.furiganaText) finalRegion.furiganaText = completeRegion.furiganaText;
+      if (completeRegion.translation) finalRegion.translation = completeRegion.translation;
+      if (completeRegion.boundingBox) finalRegion.boundingBox = completeRegion.boundingBox;
+    }
+    return finalRegion;
   });
 
-  result.textRegions = mergedRegions;
+  // Ensure any complete regions not found by regex (edge cases) are still included
+  textRegions.forEach((tr: any) => {
+    if (!mergedRegions.find(mr => mr.id === tr.id)) {
+      const details = detailedAnalysis.find((d: any) => d.id === tr.id) || { vocabulary: [], grammarPoints: [] };
+      mergedRegions.push({ ...tr, ...details });
+    }
+  });
+
+  result.textRegions = mergedRegions.sort((a, b) => a.id - b.id);
   return result;
 };
 
@@ -313,13 +347,13 @@ const analyzeWithGemini = async (
                   type: "OBJECT",
                   properties: {
                     id: { type: "INTEGER" },
+                    boundingBox: { type: "ARRAY", items: { type: "INTEGER" } },
                     text: { type: "STRING" },
                     reading: { type: "STRING" },
                     furiganaText: { type: "STRING" },
-                    translation: { type: "STRING" },
-                    boundingBox: { type: "ARRAY", items: { type: "INTEGER" } }
+                    translation: { type: "STRING" }
                   },
-                  required: ["id", "text", "reading", "furiganaText", "translation", "boundingBox"]
+                  required: ["id", "boundingBox", "text", "reading", "furiganaText", "translation"]
                 }
               },
               detailedAnalysis: {
@@ -366,12 +400,15 @@ const analyzeWithGemini = async (
         }
       };
 
+      let streamStartTime = Date.now();
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           const jsonString = await new Promise<string>((resolve, reject) => {
             let fullText = '';
             let isDone = false;
-            let lastReportedCount = 0;
+            let lastReportTime = 0;
+            let firstChunkTime = 0;
+            const requestStartTime = Date.now();
             
             const es = new EventSource(`${url}?alt=sse&key=${apiKey}`, {
               method: 'POST',
@@ -389,17 +426,20 @@ const analyzeWithGemini = async (
             es.addEventListener('message', (event: any) => {
               if (event.data) {
                 try {
+                  const now = Date.now();
+                  if (firstChunkTime === 0) {
+                    firstChunkTime = now;
+                    logger.info(LogCategory.AI, `First chunk received after ${firstChunkTime - requestStartTime}ms`);
+                  }
+                  
                   const data = JSON.parse(event.data);
                   const chunk = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
                   fullText += chunk;
                   
-                  if (onProgress) {
+                  if (onProgress && (now - lastReportTime > 500)) {
+                    lastReportTime = now;
                     const partial = extractPartialBreakdown(fullText);
-                    const currentCount = partial.textRegions?.length || 0;
-                    if (currentCount > lastReportedCount) {
-                      lastReportedCount = currentCount;
-                      onProgress(mapParsedBreakdown(partial));
-                    }
+                    onProgress(mapParsedBreakdown(partial));
                   }
                 } catch (e) {
                   // Ignore JSON parse errors for chunks
@@ -412,6 +452,7 @@ const analyzeWithGemini = async (
               es.close();
               if (!isDone) {
                 const status = err.status || err.type;
+                logger.error(LogCategory.AI, `Stream error after ${Date.now() - requestStartTime}ms: ${status}`);
                 reject(new Error(`Stream error: ${status}`));
               }
             });
@@ -420,6 +461,7 @@ const analyzeWithGemini = async (
               isDone = true;
               es.removeAllEventListeners();
               es.close();
+              logger.info(LogCategory.AI, `Stream completed in ${Date.now() - requestStartTime}ms`);
               resolve(fullText);
             });
           });
