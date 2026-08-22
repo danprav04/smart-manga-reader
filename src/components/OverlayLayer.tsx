@@ -1,11 +1,8 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Image, Dimensions, Text, StatusBar } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, Image, Dimensions, StatusBar } from 'react-native';
 import { useBreakdown } from '../store/breakdownStore';
 import * as Haptics from 'expo-haptics';
 import { logger, LogCategory } from '../utils/logger';
-import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 
 interface OverlayLayerProps {
   onRegionTap: (regionIndex: number) => void;
@@ -16,7 +13,6 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
   const { state } = useBreakdown();
   const [layout, setLayout] = useState({ width: 0, height: 0 });
   const windowDimensions = Dimensions.get('window');
-  const insets = useSafeAreaInsets();
 
   // Note: visibility is now controlled by the parent Modal wrapper in index.tsx.
   // We only guard against missing data here.
@@ -78,7 +74,6 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
         const height = ((ymax - ymin) / scale) * currentHeight;
         const width = ((xmax - xmin) / scale) * currentWidth;
         
-        logger.debug(LogCategory.UI, `Rendering region ${index} at top:${top}, left:${left}, width:${width}, height:${height}`);
 
         return (
           <TouchableOpacity
