@@ -97,6 +97,13 @@ export default function SettingsScreen() {
             onChangeText={(val) => updateSettings({ geminiModel: val })}
             placeholderTextColor={themeStyles.placeholderTextColor}
           />
+          <Text style={[styles.label, themeStyles.textSecondary]}>Fast OCR Model (Two-Pass)</Text>
+          <TextInput
+            style={[styles.input, themeStyles.input, { borderColor: themeStyles.borderColor }]}
+            value={settings.geminiFastModel}
+            onChangeText={(val) => updateSettings({ geminiFastModel: val })}
+            placeholderTextColor={themeStyles.placeholderTextColor}
+          />
           <Text style={[styles.label, themeStyles.textSecondary]}>Fallback Sequence</Text>
           <TextInput
             style={[styles.input, themeStyles.input, { borderColor: themeStyles.borderColor, height: 80, textAlignVertical: 'top' }]}
@@ -136,6 +143,14 @@ export default function SettingsScreen() {
             value={settings.openaiModel}
             onChangeText={(val) => updateSettings({ openaiModel: val })}
             placeholder="gpt-4o"
+            placeholderTextColor={themeStyles.placeholderTextColor}
+          />
+          <Text style={[styles.label, themeStyles.textSecondary]}>Fast OCR Model (Two-Pass)</Text>
+          <TextInput
+            style={[styles.input, themeStyles.input, { borderColor: themeStyles.borderColor }]}
+            value={settings.openaiFastModel}
+            onChangeText={(val) => updateSettings({ openaiFastModel: val })}
+            placeholder="gpt-4o-mini"
             placeholderTextColor={themeStyles.placeholderTextColor}
           />
           <Text style={[styles.label, themeStyles.textSecondary]}>Fallback Sequence</Text>

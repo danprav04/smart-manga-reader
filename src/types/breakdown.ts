@@ -47,9 +47,11 @@ export interface PageSummary {
 export interface Settings {
   aiProvider: 'gemini' | 'openai';
   geminiModel: string;
+  geminiFastModel: string;
   geminiFallbackSequence: string;
   openaiBaseUrl: string;
   openaiModel: string;
+  openaiFastModel: string;
   openaiFallbackSequence: string;
   readerBaseUrl: string;
   japaneseLevel: string;

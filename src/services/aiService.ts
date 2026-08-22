@@ -3,6 +3,24 @@ import { BreakdownResult, Settings } from '../types/breakdown';
 import { getGeminiApiKey, getOpenAIApiKey } from '../store/settingsStore';
 import { logger, LogCategory } from '../utils/logger';
 
+const getFastPassPrompt = () => `
+You are an expert OCR system.
+Extract EVERY SINGLE text region from the image (speech bubbles, narration, sound effects, background text).
+Do NOT skip, summarize, or group distinct bubbles together.
+
+Your output must be a JSON object with exactly this structure:
+{
+  "textRegions": [
+    {
+      "id": 1,
+      "boundingBox": [ymin, xmin, ymax, xmax],
+      "text": "The raw Japanese text"
+    }
+  ]
+}
+- The bounding box MUST be a 4-element array [ymin, xmin, ymax, xmax] using normalized integer coordinates (0 to 1000). Box must tightly wrap the text.
+`;
+
 const getSystemPrompt = (japaneseLevel: string) => `
 You are an expert Japanese translator and language tutor.
 Your task is to analyze a manga page and provide an exhaustive, detailed breakdown.
@@ -294,12 +312,28 @@ export const analyzeScreenshot = async (
   logger.info(LogCategory.AI, `Starting analysis. Provider: ${settings.aiProvider}, Base64 size: ${base64Image.length} chars`);
   try {
     const startTime = Date.now();
+    
+    // 1. Kick off Fast Pass if streaming is requested
+    if (onProgress) {
+      try {
+        if (settings.aiProvider === 'gemini') {
+          await analyzeWithGemini(base64Image, settings, signal, onProgress, true);
+        } else {
+          await analyzeWithOpenAI(base64Image, settings, signal, onProgress, true);
+        }
+      } catch (e) {
+        logger.warn(LogCategory.AI, "Fast pass failed, falling back to Deep pass exclusively", e);
+      }
+    }
+
+    // 2. Await Deep Pass
     let result: BreakdownResult;
     if (settings.aiProvider === 'gemini') {
-      result = await analyzeWithGemini(base64Image, settings, signal, onProgress);
+      result = await analyzeWithGemini(base64Image, settings, signal, onProgress, false);
     } else {
-      result = await analyzeWithOpenAI(base64Image, settings, signal, onProgress);
+      result = await analyzeWithOpenAI(base64Image, settings, signal, onProgress, false);
     }
+    
     const elapsed = Date.now() - startTime;
     logger.info(LogCategory.AI, `Analysis completed successfully in ${elapsed}ms. Found ${result.textRegions?.length || 0} text regions.`);
     return result;
@@ -313,7 +347,8 @@ const analyzeWithGemini = async (
   base64Image: string, 
   settings: Settings, 
   signal?: AbortSignal,
-  onProgress?: (partialResult: BreakdownResult) => void
+  onProgress?: (partialResult: BreakdownResult) => void,
+  isFastPass: boolean = false
 ): Promise<BreakdownResult> => {
   const apiKey = await getGeminiApiKey();
   if (!apiKey) throw new Error('Gemini API key is not set');
@@ -321,28 +356,33 @@ const analyzeWithGemini = async (
   const defaultSequence = settings.geminiFallbackSequence 
     ? settings.geminiFallbackSequence.split(',').map(s => s.trim()).filter(Boolean)
     : ['gemini-3.1-flash', 'gemini-3.5-flash'];
-  const modelsToTry = [settings.geminiModel || 'gemini-3.1-flash'];
-  
-  for (const model of defaultSequence) {
-    if (!modelsToTry.includes(model)) {
-      modelsToTry.push(model);
+    
+  let modelsToTry: string[];
+  if (isFastPass) {
+    modelsToTry = [settings.geminiFastModel || 'gemini-3.7-flash-8b'];
+  } else {
+    modelsToTry = [settings.geminiModel || 'gemini-3.1-flash'];
+    for (const model of defaultSequence) {
+      if (!modelsToTry.includes(model)) {
+        modelsToTry.push(model);
+      }
     }
   }
 
   let lastError: Error | null = null;
 
   for (const model of modelsToTry) {
-    logger.info(LogCategory.AI, `Trying Gemini model: ${model} with Streaming`);
+    logger.info(LogCategory.AI, `Trying Gemini model: ${model} with Streaming (FastPass: ${isFastPass})`);
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent`;
       
       const payload = {
-        system_instruction: { parts: [{ text: getSystemPrompt(settings.japaneseLevel) }] },
+        system_instruction: { parts: [{ text: isFastPass ? getFastPassPrompt() : getSystemPrompt(settings.japaneseLevel) }] },
         contents: [
           {
             role: 'user',
             parts: [
-              { text: 'Analyze this manga page.' },
+              { text: isFastPass ? 'Extract text regions from this manga page.' : 'Analyze this manga page.' },
               { inline_data: { mime_type: 'image/jpeg', data: base64Image } }
             ]
           }
@@ -459,7 +499,8 @@ const analyzeWithOpenAI = async (
   base64Image: string, 
   settings: Settings, 
   signal?: AbortSignal,
-  onProgress?: (partialResult: BreakdownResult) => void
+  onProgress?: (partialResult: BreakdownResult) => void,
+  isFastPass: boolean = false
 ): Promise<BreakdownResult> => {
   const apiKey = await getOpenAIApiKey();
   if (!apiKey) throw new Error('OpenAI API key is not set');
@@ -470,19 +511,23 @@ const analyzeWithOpenAI = async (
   const defaultSequence = settings.openaiFallbackSequence 
     ? settings.openaiFallbackSequence.split(',').map(s => s.trim()).filter(Boolean)
     : [];
-  const modelsToTry = [settings.openaiModel || 'gpt-4o'];
-  
-  // Add the default sequence as fallbacks, removing duplicates
-  for (const model of defaultSequence) {
-    if (!modelsToTry.includes(model)) {
-      modelsToTry.push(model);
+    
+  let modelsToTry: string[];
+  if (isFastPass) {
+    modelsToTry = [settings.openaiFastModel || 'gpt-4o-mini'];
+  } else {
+    modelsToTry = [settings.openaiModel || 'gpt-4o'];
+    for (const model of defaultSequence) {
+      if (!modelsToTry.includes(model)) {
+        modelsToTry.push(model);
+      }
     }
   }
 
   let lastError: Error | null = null;
 
   for (const modelToUse of modelsToTry) {
-    logger.info(LogCategory.AI, `Using OpenAI API with model: ${modelToUse}`);
+    logger.info(LogCategory.AI, `Using OpenAI API with model: ${modelToUse} (FastPass: ${isFastPass})`);
     
     try {
       const response = await fetchWithRetry(url, {
@@ -496,11 +541,11 @@ const analyzeWithOpenAI = async (
           model: modelToUse,
           response_format: { type: "json_object" },
           messages: [
-            { role: 'system', content: getSystemPrompt(settings.japaneseLevel) },
+            { role: 'system', content: isFastPass ? getFastPassPrompt() : getSystemPrompt(settings.japaneseLevel) },
             {
               role: 'user',
               content: [
-                { type: 'text', text: 'Analyze this manga page. Output JSON format.' },
+                { type: 'text', text: isFastPass ? 'Extract text regions from this manga page. Output JSON format.' : 'Analyze this manga page. Output JSON format.' },
                 {
                   type: 'image_url',
                   image_url: { url: `data:image/jpeg;base64,${base64Image}` }
