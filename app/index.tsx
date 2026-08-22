@@ -322,7 +322,10 @@ export default function ReaderScreen() {
         transparent={true}
         animationType="fade"
         statusBarTranslucent={true}
-        onRequestClose={() => dispatch({ type: 'DISMISS_OVERLAY' })}
+        onRequestClose={() => {
+          dispatch({ type: 'DISMISS_OVERLAY' });
+          if (state.isAnalyzing) abortControllerRef.current?.abort();
+        }}
       >
         <GestureHandlerRootView style={{ flex: 1 }}>
           <OverlayLayer 
@@ -332,12 +335,16 @@ export default function ReaderScreen() {
                 sheetRef.current.dismiss();
               } else {
                 dispatch({ type: 'DISMISS_OVERLAY' });
+                if (state.isAnalyzing) abortControllerRef.current?.abort();
               }
             }}
           />
           <BreakdownSheet 
             ref={sheetRef} 
-            onDismiss={() => dispatch({ type: 'DISMISS_OVERLAY' })}
+            onDismiss={() => {
+              dispatch({ type: 'DISMISS_OVERLAY' });
+              if (state.isAnalyzing) abortControllerRef.current?.abort();
+            }}
             onReanalyze={handleReanalyze}
           />
 
@@ -346,6 +353,7 @@ export default function ReaderScreen() {
             style={[styles.settingsButton, { top: Math.max(insets.top, 16) + 10 }]} 
             onPress={() => {
               dispatch({ type: 'DISMISS_OVERLAY' });
+              if (state.isAnalyzing) abortControllerRef.current?.abort();
               router.push('/settings');
             }}
             activeOpacity={0.7}
