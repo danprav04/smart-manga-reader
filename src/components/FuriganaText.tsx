@@ -10,7 +10,7 @@ interface FuriganaTextProps {
 
 const parseFurigana = (str: string) => {
   const parts: { text: string; reading?: string }[] = [];
-  const regex = /\{([^|]+)\|([^}]+)\}/g;
+  const regex = /\{([^}]+)\}/g;
   let lastIndex = 0;
   let match;
   
@@ -18,7 +18,20 @@ const parseFurigana = (str: string) => {
     if (match.index > lastIndex) {
       parts.push({ text: str.substring(lastIndex, match.index) });
     }
-    parts.push({ text: match[1], reading: match[2] });
+    
+    const innerContent = match[1];
+    const splitParts = innerContent.split('|');
+    
+    if (splitParts.length >= 2) {
+      const reading = splitParts.pop();
+      const text = splitParts.join('');
+      parts.push({ text, reading });
+    } else {
+      // If there's no pipe, it might just be normal text surrounded by braces, 
+      // or a malformed tag. We'll just restore the braces.
+      parts.push({ text: `{${innerContent}}` });
+    }
+    
     lastIndex = regex.lastIndex;
   }
   
