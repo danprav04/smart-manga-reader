@@ -55,7 +55,7 @@ export const FuriganaText: React.FC<FuriganaTextProps> = ({ text, reading, furig
             {part.reading ? (
               <Text style={[styles.ruby, !revealed && styles.hiddenRuby]} selectable={revealed}>{part.reading}</Text>
             ) : (
-              <Text style={styles.rubyPlaceholder}> </Text>
+              <Text style={styles.rubyPlaceholder}>あ</Text>
             )}
             <Text style={styles.text} selectable>{part.text}</Text>
           </View>
@@ -98,11 +98,15 @@ const styles = StyleSheet.create({
   rubyPlaceholder: {
     fontSize: 12,
     marginBottom: -2,
+    opacity: 0,
   },
   hiddenRuby: {
     backgroundColor: '#3a3a5e',
-    color: 'transparent',
-    borderRadius: 2,
+    color: '#3a3a5e',
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#7a7a9a',
+    borderStyle: 'dashed',
     overflow: 'hidden',
   },
   text: {

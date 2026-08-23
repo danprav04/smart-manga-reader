@@ -33,11 +33,29 @@ const Spoiler = ({ children, style }: { children: React.ReactNode, style?: any }
     <TouchableOpacity 
       activeOpacity={0.9} 
       onPress={() => setRevealed(!revealed)}
-      style={[style, !revealed && { backgroundColor: '#3a3a5e', borderRadius: 4, overflow: 'hidden' }]}
+      style={[
+        style, 
+        !revealed && { 
+          backgroundColor: '#2a2a40', 
+          borderRadius: 6, 
+          borderWidth: 1,
+          borderColor: '#5a5a7a',
+          borderStyle: 'dashed',
+          overflow: 'hidden',
+        }
+      ]}
     >
       <View pointerEvents={revealed ? 'auto' : 'none'} style={!revealed ? { opacity: 0 } : undefined}>
         {children}
       </View>
+      {!revealed && (
+        <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+            <Ionicons name="eye-outline" size={14} color="#ccc" style={{ marginRight: 6 }} />
+            <Text style={{ color: '#ccc', fontSize: 12, fontWeight: '600' }}>Reveal</Text>
+          </View>
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
