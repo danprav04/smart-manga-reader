@@ -5,6 +5,7 @@ interface FuriganaTextProps {
   text: string;
   reading?: string;
   furiganaText?: string;
+  forceReveal?: boolean;
   style?: any;
 }
 
@@ -35,18 +36,19 @@ const parseFurigana = (str: string) => {
   return parts;
 };
 
-const FuriganaPart = ({ part }: { part: { text: string; reading?: string } }) => {
+const FuriganaPart = ({ part, forceReveal }: { part: { text: string; reading?: string }, forceReveal?: boolean }) => {
   const [revealed, setRevealed] = useState(false);
+  const isRevealed = revealed || forceReveal;
 
   return (
     <TouchableOpacity 
-      activeOpacity={part.reading ? 0.8 : 1} 
-      onPress={() => part.reading && setRevealed(!revealed)} 
+      activeOpacity={part.reading && !forceReveal ? 0.8 : 1} 
+      onPress={() => part.reading && !forceReveal && setRevealed(!revealed)} 
       style={styles.charContainer}
     >
       <View style={styles.rubyContainer}>
         {part.reading ? (
-          <Text style={[styles.ruby, !revealed && styles.hiddenRuby]} selectable={revealed}>
+          <Text style={[styles.ruby, !isRevealed && styles.hiddenRuby]} selectable={isRevealed}>
             {part.reading}
           </Text>
         ) : null}
@@ -56,14 +58,14 @@ const FuriganaPart = ({ part }: { part: { text: string; reading?: string } }) =>
   );
 };
 
-export const FuriganaText: React.FC<FuriganaTextProps> = ({ text, reading, furiganaText, style }) => {
+export const FuriganaText: React.FC<FuriganaTextProps> = ({ text, reading, furiganaText, forceReveal, style }) => {
   if (furiganaText) {
     const parts = parseFurigana(furiganaText);
     
     return (
       <View style={[styles.containerRow, style]}>
         {parts.map((part, index) => (
-          <FuriganaPart key={index} part={part} />
+          <FuriganaPart key={index} part={part} forceReveal={forceReveal} />
         ))}
       </View>
     );
@@ -72,7 +74,7 @@ export const FuriganaText: React.FC<FuriganaTextProps> = ({ text, reading, furig
   // Fallback to old behavior
   return (
     <View style={[styles.containerRow, style]}>
-      <FuriganaPart part={{ text, reading }} />
+      <FuriganaPart part={{ text, reading }} forceReveal={forceReveal} />
     </View>
   );
 };

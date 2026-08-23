@@ -179,6 +179,19 @@ export default function SettingsScreen() {
               thumbColor={'#fff'}
             />
           </View>
+
+          <View style={[styles.row, { borderBottomWidth: 0, marginBottom: 12 }]}>
+            <Text style={[styles.labelBold, themeStyles.text]}>Disable Spoilers</Text>
+            <Switch
+              value={settings.disableSpoilers}
+              onValueChange={(val) => {
+                Haptics.selectionAsync();
+                updateSettings({ disableSpoilers: val });
+              }}
+              trackColor={{ false: '#767577', true: '#208AEF' }}
+              thumbColor={'#fff'}
+            />
+          </View>
           
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
             <Text style={[styles.labelBold, themeStyles.text]}>Night Reader (Web)</Text>

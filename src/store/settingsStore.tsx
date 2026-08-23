@@ -22,6 +22,7 @@ const defaultSettings: Settings = {
   japaneseLevel: '',
   darkMode: true,
   nightReader: false,
+  disableSpoilers: false,
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);

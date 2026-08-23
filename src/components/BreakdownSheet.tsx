@@ -5,6 +5,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { useBreakdown } from '../store/breakdownStore';
+import { useSettings } from '../store/settingsStore';
 import { FuriganaText } from './FuriganaText';
 import { logger, LogCategory } from '../utils/logger';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,15 +28,21 @@ interface BreakdownSheetProps {
   onReanalyze: () => void;
 }
 
-const Spoiler = ({ children, style, small }: { children: React.ReactNode, style?: any, small?: boolean }) => {
+const Spoiler = ({ children, style, small, forceReveal }: { children: React.ReactNode, style?: any, small?: boolean, forceReveal?: boolean }) => {
   const [revealed, setRevealed] = useState(false);
+  const isRevealed = revealed || forceReveal;
+
+  if (forceReveal) {
+    return <View style={style}>{children}</View>;
+  }
+
   return (
     <TouchableOpacity 
       activeOpacity={0.9} 
       onPress={() => setRevealed(!revealed)}
       style={[
         style, 
-        !revealed && { 
+        !isRevealed && { 
           backgroundColor: 'rgba(255, 255, 255, 0.08)', 
           borderRadius: small ? 4 : 8, 
           overflow: 'hidden',
@@ -44,10 +51,10 @@ const Spoiler = ({ children, style, small }: { children: React.ReactNode, style?
         }
       ]}
     >
-      <View pointerEvents={revealed ? 'auto' : 'none'} style={!revealed ? { opacity: 0 } : undefined}>
+      <View pointerEvents={isRevealed ? 'auto' : 'none'} style={!isRevealed ? { opacity: 0 } : undefined}>
         {children}
       </View>
-      {!revealed && (
+      {!isRevealed && (
         <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
           <View style={{ 
             alignItems: 'center', 
@@ -67,6 +74,10 @@ const Spoiler = ({ children, style, small }: { children: React.ReactNode, style?
 
 export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>(({ onDismiss, onReanalyze }, ref) => {
   const { state } = useBreakdown();
+  const { settings } = useSettings();
+  const [revealAll, setRevealAll] = useState(false);
+  const forceReveal = revealAll || settings.disableSpoilers;
+  
   const scrollViewRef = useRef<ScrollView>(null);
   const regionLayouts = useRef<{ [key: number]: number }>({});
   const textRegionsOffsetY = useRef<number>(0);
@@ -78,6 +89,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
     if (state.overlayVisible) {
       translateY.setValue(SNAP_TOP_COLLAPSED);
       currentSnap.current = SNAP_TOP_COLLAPSED;
+      setRevealAll(false);
     }
   }, [state.overlayVisible]);
 
@@ -202,10 +214,18 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
         
         <View style={styles.headerRight}>
           {!state.isAnalyzing && (
-            <TouchableOpacity activeOpacity={0.7} style={styles.primaryButton} onPress={onReanalyze}>
-              <Ionicons name="refresh" size={16} color="#fff" />
-              <Text style={styles.primaryButtonText}>Re-analyze</Text>
-            </TouchableOpacity>
+            <>
+              {!settings.disableSpoilers && (
+                <TouchableOpacity activeOpacity={0.7} style={styles.secondaryButton} onPress={() => setRevealAll(!revealAll)}>
+                  <Ionicons name={revealAll ? "eye-off-outline" : "eye-outline"} size={16} color="#fff" />
+                  <Text style={styles.secondaryButtonText}>{revealAll ? 'Hide All' : 'Reveal All'}</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity activeOpacity={0.7} style={styles.primaryButton} onPress={onReanalyze}>
+                <Ionicons name="refresh" size={16} color="#fff" />
+                <Text style={styles.primaryButtonText}>Re-analyze</Text>
+              </TouchableOpacity>
+            </>
           )}
           <TouchableOpacity activeOpacity={0.7} style={styles.ghostButton} onPress={() => {
             Animated.timing(translateY, {
@@ -230,7 +250,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
         {fullTranslation && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📖 Full Translation</Text>
-            <Spoiler>
+            <Spoiler forceReveal={forceReveal}>
               <Text style={styles.bodyText} selectable>{fullTranslation}</Text>
             </Spoiler>
           </View>
@@ -257,10 +277,10 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
                 <Text style={styles.regionNumber}>Region {index + 1}</Text>
               </View>
               <View style={styles.furiganaContainer}>
-                 <FuriganaText text={region.text} reading={region.reading} furiganaText={region.furiganaText} />
+                 <FuriganaText text={region.text} reading={region.reading} furiganaText={region.furiganaText} forceReveal={forceReveal} />
               </View>
               
-              <Spoiler style={styles.translationContainer}>
+              <Spoiler style={styles.translationContainer} forceReveal={forceReveal}>
                 <Text style={styles.translation} selectable>{region.translation}</Text>
               </Spoiler>
               
@@ -271,7 +291,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
                   {vocabulary.filter(v => v.regionIndex === index).map((v, vIndex) => (
                     <View key={vIndex} style={styles.vocabItem}>
                       <Text style={styles.vocabWord} selectable>{v.word}</Text>
-                      <Spoiler style={styles.vocabSpoiler} small={true}>
+                      <Spoiler style={styles.vocabSpoiler} small={true} forceReveal={forceReveal}>
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                           <Text style={styles.vocabReading} selectable>({v.reading})</Text>
                           <Text style={styles.vocabMeaning} selectable>- {v.meaning}</Text>
@@ -289,7 +309,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
                   {grammarPoints.filter(g => g.regionIndex === index).map((g, gIndex) => (
                     <View key={gIndex} style={styles.grammarItem}>
                       <Text style={styles.grammarPattern} selectable>{g.pattern}</Text>
-                      <Spoiler style={styles.grammarSpoiler}>
+                      <Spoiler style={styles.grammarSpoiler} forceReveal={forceReveal}>
                         <Text style={styles.grammarExplanation} selectable>{g.explanation}</Text>
                       </Spoiler>
                     </View>
@@ -391,6 +411,20 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  secondaryButtonText: {
+    color: '#ddd',
     fontSize: 14,
     fontWeight: '600',
   },

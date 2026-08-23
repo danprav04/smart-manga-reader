@@ -59,4 +59,5 @@ export interface Settings {
   japaneseLevel: string;
   darkMode: boolean;
   nightReader: boolean;
+  disableSpoilers: boolean;
 }
