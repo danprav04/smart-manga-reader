@@ -272,7 +272,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
                     <View key={vIndex} style={styles.vocabItem}>
                       <Text style={styles.vocabWord} selectable>{v.word}</Text>
                       <Spoiler style={styles.vocabSpoiler} small={true}>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                           <Text style={styles.vocabReading} selectable>({v.reading})</Text>
                           <Text style={styles.vocabMeaning} selectable>- {v.meaning}</Text>
                         </View>
@@ -458,8 +458,7 @@ const styles = StyleSheet.create({
   },
   vocabItem: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 8,
   },
   vocabWord: {
@@ -469,10 +468,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   vocabSpoiler: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     flexShrink: 1,
-    alignItems: 'center',
   },
   vocabReading: {
     fontSize: 16,
