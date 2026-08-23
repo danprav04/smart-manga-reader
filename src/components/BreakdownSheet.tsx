@@ -93,6 +93,36 @@ const RegionCard = ({
   const forceRevealVocab = forceRevealAll || revealGroups.vocabulary || localReveal.vocabulary;
   const forceRevealGrammar = forceRevealAll || revealGroups.grammar || localReveal.grammar;
 
+  const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        pan.extractOffset();
+      },
+      onPanResponderMove: Animated.event(
+        [null, { dx: pan.x, dy: pan.y }],
+        { useNativeDriver: false }
+      ),
+      onPanResponderRelease: () => {
+        pan.flattenOffset();
+      },
+      onPanResponderTerminate: () => {
+        pan.flattenOffset();
+      }
+    })
+  ).current;
+
+  useEffect(() => {
+    if (!showContext) {
+      pan.setValue({ x: 0, y: 0 });
+      pan.flattenOffset();
+    }
+  }, [showContext, pan]);
+
   const renderContextImage = () => {
     if (!screenshotUri || !region.boundingBox) return null;
     
@@ -126,18 +156,21 @@ const RegionCard = ({
     const S = Math.min(1, MAX_WIDTH / crop_w);
 
     return (
-      <View style={{
-        width: crop_w * S,
-        height: crop_h * S,
-        overflow: 'hidden',
-        borderRadius: 8,
-        marginVertical: 12,
-        backgroundColor: '#000',
-        alignSelf: 'center',
-        borderWidth: 1,
-        borderColor: '#444'
-      }}>
-        <Image 
+      <View 
+        style={{
+          width: crop_w * S,
+          height: crop_h * S,
+          overflow: 'hidden',
+          borderRadius: 8,
+          marginVertical: 12,
+          backgroundColor: '#000',
+          alignSelf: 'center',
+          borderWidth: 1,
+          borderColor: '#444'
+        }}
+        {...panResponder.panHandlers}
+      >
+        <Animated.Image 
           source={{ uri: screenshotUri }}
           style={{
             position: 'absolute',
@@ -145,6 +178,10 @@ const RegionCard = ({
             height: H_orig * S,
             left: -crop_x * S,
             top: -crop_y * S,
+            transform: [
+              { translateX: pan.x },
+              { translateY: pan.y }
+            ]
           }}
           resizeMode="stretch"
         />
