@@ -38,20 +38,21 @@ const parseFurigana = (str: string) => {
 const FuriganaPart = ({ part }: { part: { text: string; reading?: string } }) => {
   const [revealed, setRevealed] = useState(false);
 
-  if (part.reading) {
-    return (
-      <TouchableOpacity activeOpacity={0.8} onPress={() => setRevealed(!revealed)} style={styles.charContainer}>
-        <Text style={[styles.ruby, !revealed && styles.hiddenRuby]} selectable={revealed}>{part.reading}</Text>
-        <Text style={styles.text} selectable>{part.text}</Text>
-      </TouchableOpacity>
-    );
-  }
-
   return (
-    <View style={styles.charContainer}>
-      <Text style={styles.rubyPlaceholder}>あ</Text>
+    <TouchableOpacity 
+      activeOpacity={part.reading ? 0.8 : 1} 
+      onPress={() => part.reading && setRevealed(!revealed)} 
+      style={styles.charContainer}
+    >
+      <View style={styles.rubyContainer}>
+        {part.reading ? (
+          <Text style={[styles.ruby, !revealed && styles.hiddenRuby]} selectable={revealed}>
+            {part.reading}
+          </Text>
+        ) : null}
+      </View>
       <Text style={styles.text} selectable>{part.text}</Text>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -91,15 +92,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
+  rubyContainer: {
+    height: 18,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
   ruby: {
     fontSize: 14,
     color: '#888',
-    marginBottom: -2, // pull it closer to the main text
-  },
-  rubyPlaceholder: {
-    fontSize: 14,
-    marginBottom: -2,
-    opacity: 0,
+    lineHeight: 16,
+    marginHorizontal: 1,
   },
   hiddenRuby: {
     backgroundColor: '#383854',
@@ -109,6 +112,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 26,
+    lineHeight: 32,
     color: '#fff', // assuming dark mode for bottom sheet
   },
 });

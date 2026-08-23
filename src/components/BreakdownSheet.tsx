@@ -39,24 +39,25 @@ const Spoiler = ({ children, style, small }: { children: React.ReactNode, style?
           backgroundColor: 'rgba(255, 255, 255, 0.08)', 
           borderRadius: small ? 4 : 8, 
           overflow: 'hidden',
+          minWidth: 32, // enough for the eye icon
+          minHeight: 24,
         }
       ]}
     >
       <View pointerEvents={revealed ? 'auto' : 'none'} style={!revealed ? { opacity: 0 } : undefined}>
         {children}
       </View>
-      {!revealed && !small && (
+      {!revealed && (
         <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
           <View style={{ 
-            flexDirection: 'row', 
             alignItems: 'center', 
+            justifyContent: 'center',
             backgroundColor: 'rgba(0,0,0,0.5)', 
-            paddingHorizontal: 12, 
-            paddingVertical: 6, 
-            borderRadius: 16 
+            paddingHorizontal: small ? 6 : 8, 
+            paddingVertical: small ? 4 : 6, 
+            borderRadius: 12 
           }}>
-            <Ionicons name="eye-outline" size={16} color="#ddd" style={{ marginRight: 6 }} />
-            <Text style={{ color: '#ddd', fontSize: 13, fontWeight: '600' }}>Tap to reveal</Text>
+            <Ionicons name="eye-outline" size={small ? 14 : 16} color="#ddd" />
           </View>
         </View>
       )}
