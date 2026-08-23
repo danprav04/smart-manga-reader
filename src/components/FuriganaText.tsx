@@ -3,75 +3,76 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
 interface FuriganaTextProps {
   text: string;
-  reading: string;
+  reading?: string;
   furiganaText?: string;
   style?: any;
 }
 
 const parseFurigana = (str: string) => {
   const parts: { text: string; reading?: string }[] = [];
-  const regex = /\{([^}]+)\}/g;
+  const regex = /\{([^|]+)\|([^}]+)\}/g;
   let lastIndex = 0;
   let match;
   
   while ((match = regex.exec(str)) !== null) {
     if (match.index > lastIndex) {
-      parts.push({ text: str.substring(lastIndex, match.index) });
+      const textPart = str.substring(lastIndex, match.index);
+      for (const char of textPart) {
+        parts.push({ text: char });
+      }
     }
-    
-    const innerContent = match[1];
-    const splitParts = innerContent.split('|');
-    
-    if (splitParts.length >= 2) {
-      const reading = splitParts.pop();
-      const text = splitParts.join('');
-      parts.push({ text, reading });
-    } else {
-      // If there's no pipe, it might just be normal text surrounded by braces, 
-      // or a malformed tag. We'll just restore the braces.
-      parts.push({ text: `{${innerContent}}` });
-    }
-    
+    parts.push({ text: match[1], reading: match[2] });
     lastIndex = regex.lastIndex;
   }
   
   if (lastIndex < str.length) {
-    parts.push({ text: str.substring(lastIndex) });
+    const textPart = str.substring(lastIndex);
+    for (const char of textPart) {
+      parts.push({ text: char });
+    }
   }
   
   return parts;
 };
 
-export const FuriganaText: React.FC<FuriganaTextProps> = ({ text, reading, furiganaText, style }) => {
+const FuriganaPart = ({ part }: { part: { text: string; reading?: string } }) => {
   const [revealed, setRevealed] = useState(false);
 
+  if (part.reading) {
+    return (
+      <TouchableOpacity activeOpacity={0.8} onPress={() => setRevealed(!revealed)} style={styles.charContainer}>
+        <Text style={[styles.ruby, !revealed && styles.hiddenRuby]} selectable={revealed}>{part.reading}</Text>
+        <Text style={styles.text} selectable>{part.text}</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View style={styles.charContainer}>
+      <Text style={styles.rubyPlaceholder}>あ</Text>
+      <Text style={styles.text} selectable>{part.text}</Text>
+    </View>
+  );
+};
+
+export const FuriganaText: React.FC<FuriganaTextProps> = ({ text, reading, furiganaText, style }) => {
   if (furiganaText) {
     const parts = parseFurigana(furiganaText);
     
     return (
-      <TouchableOpacity activeOpacity={0.8} onPress={() => setRevealed(!revealed)} style={[styles.containerRow, style]}>
+      <View style={[styles.containerRow, style]}>
         {parts.map((part, index) => (
-          <View key={index} style={styles.charContainer}>
-            {part.reading ? (
-              <Text style={[styles.ruby, !revealed && styles.hiddenRuby]} selectable={revealed}>{part.reading}</Text>
-            ) : (
-              <Text style={styles.rubyPlaceholder}>あ</Text>
-            )}
-            <Text style={styles.text} selectable>{part.text}</Text>
-          </View>
+          <FuriganaPart key={index} part={part} />
         ))}
-      </TouchableOpacity>
+      </View>
     );
   }
 
   // Fallback to old behavior
   return (
-    <TouchableOpacity activeOpacity={0.8} onPress={() => setRevealed(!revealed)} style={[styles.container, style]}>
-      {reading ? (
-        <Text style={[styles.ruby, !revealed && styles.hiddenRuby]} selectable={revealed}>{reading}</Text>
-      ) : null}
-      <Text style={styles.text} selectable>{text}</Text>
-    </TouchableOpacity>
+    <View style={[styles.containerRow, style]}>
+      <FuriganaPart part={{ text, reading }} />
+    </View>
   );
 };
 
@@ -91,13 +92,17 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   ruby: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#888',
     marginBottom: -2, // pull it closer to the main text
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   rubyPlaceholder: {
-    fontSize: 12,
+    fontSize: 14,
     marginBottom: -2,
+    borderWidth: 1,
+    borderColor: 'transparent',
     opacity: 0,
   },
   hiddenRuby: {
@@ -110,7 +115,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   text: {
-    fontSize: 20,
+    fontSize: 26,
     color: '#fff', // assuming dark mode for bottom sheet
   },
 });

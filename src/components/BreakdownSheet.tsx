@@ -27,7 +27,7 @@ interface BreakdownSheetProps {
   onReanalyze: () => void;
 }
 
-const Spoiler = ({ children, style }: { children: React.ReactNode, style?: any }) => {
+const Spoiler = ({ children, style, small }: { children: React.ReactNode, style?: any, small?: boolean }) => {
   const [revealed, setRevealed] = useState(false);
   return (
     <TouchableOpacity 
@@ -50,9 +50,16 @@ const Spoiler = ({ children, style }: { children: React.ReactNode, style?: any }
       </View>
       {!revealed && (
         <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-            <Ionicons name="eye-outline" size={14} color="#ccc" style={{ marginRight: 6 }} />
-            <Text style={{ color: '#ccc', fontSize: 12, fontWeight: '600' }}>Reveal</Text>
+          <View style={{ 
+            flexDirection: 'row', 
+            alignItems: 'center', 
+            backgroundColor: 'rgba(0,0,0,0.6)', 
+            paddingHorizontal: small ? 6 : 10, 
+            paddingVertical: small ? 4 : 4, 
+            borderRadius: 12 
+          }}>
+            <Ionicons name="eye-outline" size={small ? 14 : 14} color="#ccc" style={!small ? { marginRight: 6 } : undefined} />
+            {!small && <Text style={{ color: '#ccc', fontSize: 12, fontWeight: '600' }}>Reveal</Text>}
           </View>
         </View>
       )}
@@ -266,9 +273,11 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
                   {vocabulary.filter(v => v.regionIndex === index).map((v, vIndex) => (
                     <View key={vIndex} style={styles.vocabItem}>
                       <Text style={styles.vocabWord} selectable>{v.word}</Text>
-                      <Spoiler style={styles.vocabSpoiler}>
-                        <Text style={styles.vocabReading} selectable>({v.reading})</Text>
-                        <Text style={styles.vocabMeaning} selectable>- {v.meaning}</Text>
+                      <Spoiler style={styles.vocabSpoiler} small={true}>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }}>
+                          <Text style={styles.vocabReading} selectable>({v.reading})</Text>
+                          <Text style={styles.vocabMeaning} selectable>- {v.meaning}</Text>
+                        </View>
                       </Spoiler>
                     </View>
                   ))}
