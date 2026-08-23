@@ -438,6 +438,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 50,
   },
+  peekButton: {
+    position: 'absolute',
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 50,
+  },
   settingsIcon: {
     fontSize: 22,
   },
