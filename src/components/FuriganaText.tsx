@@ -40,21 +40,27 @@ const FuriganaPart = ({ part, forceReveal }: { part: { text: string; reading?: s
   const [revealed, setRevealed] = useState(false);
   const isRevealed = revealed || forceReveal;
 
-  return (
-    <TouchableOpacity 
-      activeOpacity={part.reading && !forceReveal ? 0.8 : 1} 
-      onPress={() => part.reading && !forceReveal && setRevealed(!revealed)} 
-      style={styles.charContainer}
-    >
-      <View style={styles.rubyContainer}>
-        {part.reading ? (
+  if (part.reading) {
+    return (
+      <TouchableOpacity 
+        activeOpacity={!forceReveal ? 0.8 : 1} 
+        onPress={() => !forceReveal && setRevealed(!revealed)} 
+        style={styles.charContainer}
+      >
+        <View style={styles.rubyContainer}>
           <Text style={[styles.ruby, !isRevealed && styles.hiddenRuby]} selectable={isRevealed}>
             {part.reading}
           </Text>
-        ) : null}
-      </View>
+        </View>
+        <Text style={styles.text} selectable>{part.text}</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View style={styles.charContainer}>
       <Text style={styles.text} selectable>{part.text}</Text>
-    </TouchableOpacity>
+    </View>
   );
 };
 
