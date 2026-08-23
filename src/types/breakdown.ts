@@ -41,7 +41,9 @@ export interface StoredBreakdown extends BreakdownResult {
 export interface PageSummary {
   id: number;
   url: string;
+  siteDomain: string;
   analyzedAt: string;
+  screenshotPath?: string;
 }
 
 export interface Settings {

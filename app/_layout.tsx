@@ -27,6 +27,7 @@ export default function RootLayout() {
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="settings" options={{ headerShown: false, presentation: 'modal' }} />
             <Stack.Screen name="statistics" options={{ headerShown: false, presentation: 'modal' }} />
+            <Stack.Screen name="history" options={{ headerShown: false, presentation: 'modal' }} />
           </Stack>
         </BreakdownProvider>
       </SettingsProvider>

@@ -222,6 +222,64 @@ export const getBreakdownByUrl = async (url: string): Promise<StoredBreakdown | 
   };
 };
 
+export const getBreakdownById = async (id: number): Promise<StoredBreakdown | null> => {
+  const db = await getDb();
+  
+  const page = await db.getFirstAsync<any>(`SELECT * FROM pages WHERE id = ?`, [id]);
+  if (!page) return null;
+
+  const textRegions = await db.getAllAsync<any>(`SELECT * FROM text_regions WHERE page_id = ? ORDER BY sort_order ASC`, [page.id]);
+  const vocabulary = await db.getAllAsync<any>(`SELECT * FROM vocabulary WHERE page_id = ? ORDER BY sort_order ASC`, [page.id]);
+  const grammarPoints = await db.getAllAsync<any>(`SELECT * FROM grammar_points WHERE page_id = ? ORDER BY sort_order ASC`, [page.id]);
+
+  return {
+    id: page.id,
+    url: page.url,
+    siteDomain: page.site_domain,
+    analyzedAt: page.analyzed_at,
+    screenshotPath: page.screenshot_path,
+    fullTranslation: page.full_translation,
+    contextNotes: page.context_notes,
+    textRegions: textRegions.map(tr => ({
+      text: tr.text_original,
+      reading: tr.reading,
+      furiganaText: tr.furigana_text,
+      translation: tr.translation,
+      boundingBox: [tr.bbox_ymin, tr.bbox_xmin, tr.bbox_ymax, tr.bbox_xmax]
+    })),
+    vocabulary: vocabulary.map(v => ({
+      word: v.word,
+      reading: v.reading,
+      partOfSpeech: v.part_of_speech,
+      meaning: v.meaning,
+      contextSentence: v.context_sentence,
+      regionIndex: v.region_index
+    })),
+    grammarPoints: grammarPoints.map(g => ({
+      pattern: g.pattern,
+      explanation: g.explanation,
+      exampleFromText: g.example_from_text,
+      regionIndex: g.region_index
+    }))
+  };
+};
+
+export const getRecentBreakdowns = async (limit: number = 20): Promise<PageSummary[]> => {
+  const db = await getDb();
+  const pages = await db.getAllAsync<any>(
+    `SELECT id, url, site_domain, analyzed_at, screenshot_path FROM pages ORDER BY analyzed_at DESC LIMIT ?`,
+    [limit]
+  );
+  
+  return pages.map(p => ({
+    id: p.id,
+    url: p.url,
+    siteDomain: p.site_domain,
+    analyzedAt: p.analyzed_at,
+    screenshotPath: p.screenshot_path
+  }));
+};
+
 export const hasBreakdownForUrl = async (url: string): Promise<boolean> => {
   if (!url) return false;
   const db = await getDb();

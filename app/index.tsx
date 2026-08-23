@@ -404,6 +404,15 @@ export default function ReaderScreen() {
         </TouchableOpacity>
       )}
 
+      {/* History Button */}
+      <TouchableOpacity 
+        style={[styles.settingsButton, { top: Math.max(insets.top, 16) + (isDifferentFromBase() ? 118 : 64) }]} 
+        onPress={() => router.push('/history')}
+        activeOpacity={0.7}
+      >
+        <RNText style={styles.settingsIcon}>🕒</RNText>
+      </TouchableOpacity>
+
       {!state.overlayVisible && (
         <FloatingActionButton 
           onPress={handleFabPress}
