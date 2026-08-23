@@ -2,7 +2,7 @@ import React, { useRef, forwardRef, useImperativeHandle, useState, useEffect, us
 import { 
   View, Text, StyleSheet, ScrollView, 
   Animated, PanResponder, Dimensions, TouchableOpacity,
-  ActivityIndicator
+  ActivityIndicator, Image
 } from 'react-native';
 import { useBreakdown } from '../store/breakdownStore';
 import { useSettings } from '../store/settingsStore';
@@ -79,17 +79,78 @@ const RegionCard = ({
   grammarPoints, 
   regionLayouts, 
   forceRevealAll, 
-  revealGroups 
+  revealGroups,
+  screenshotUri
 }: any) => {
   const [localReveal, setLocalReveal] = useState({
     readings: false,
     vocabulary: false,
     grammar: false,
   });
+  const [showContext, setShowContext] = useState(false);
 
   const forceRevealReadings = forceRevealAll || revealGroups.readings || localReveal.readings;
   const forceRevealVocab = forceRevealAll || revealGroups.vocabulary || localReveal.vocabulary;
   const forceRevealGrammar = forceRevealAll || revealGroups.grammar || localReveal.grammar;
+
+  const renderContextImage = () => {
+    if (!screenshotUri || !region.boundingBox) return null;
+    
+    const windowDimensions = Dimensions.get('window');
+    const W_orig = windowDimensions.width;
+    const H_orig = windowDimensions.height;
+    
+    let ymin = 0, xmin = 0, ymax = 0, xmax = 0;
+    if (Array.isArray(region.boundingBox)) {
+      [ymin, xmin, ymax, xmax] = region.boundingBox.map(Number);
+    } else if (typeof region.boundingBox === 'object') {
+      ymin = Number(region.boundingBox.ymin) || 0;
+      xmin = Number(region.boundingBox.xmin) || 0;
+      ymax = Number(region.boundingBox.ymax) || 0;
+      xmax = Number(region.boundingBox.xmax) || 0;
+    }
+
+    const scale = (xmax > 1.5 || ymax > 1.5) ? 1000 : 1;
+    const top = (ymin / scale) * H_orig;
+    const left = (xmin / scale) * W_orig;
+    const height = ((ymax - ymin) / scale) * H_orig;
+    const width = ((xmax - xmin) / scale) * W_orig;
+
+    const pad = 40;
+    let crop_x = Math.max(0, left - pad);
+    let crop_y = Math.max(0, top - pad);
+    let crop_w = Math.min(W_orig - crop_x, width + pad * 2);
+    let crop_h = Math.min(H_orig - crop_y, height + pad * 2);
+
+    const MAX_WIDTH = W_orig - 64; // Approx width of card inside sheet
+    const S = Math.min(1, MAX_WIDTH / crop_w);
+
+    return (
+      <View style={{
+        width: crop_w * S,
+        height: crop_h * S,
+        overflow: 'hidden',
+        borderRadius: 8,
+        marginVertical: 12,
+        backgroundColor: '#000',
+        alignSelf: 'center',
+        borderWidth: 1,
+        borderColor: '#444'
+      }}>
+        <Image 
+          source={{ uri: screenshotUri }}
+          style={{
+            position: 'absolute',
+            width: W_orig * S,
+            height: H_orig * S,
+            left: -crop_x * S,
+            top: -crop_y * S,
+          }}
+          resizeMode="stretch"
+        />
+      </View>
+    );
+  };
 
   return (
     <View 
@@ -101,14 +162,26 @@ const RegionCard = ({
     >
       <View style={styles.cardHeader}>
         <Text style={styles.regionNumber}>Region {index + 1}</Text>
-        <TouchableOpacity 
-          style={styles.localToggle} 
-          onPress={() => setLocalReveal(prev => ({ ...prev, readings: !prev.readings }))}
-        >
-          <Ionicons name={localReveal.readings ? "eye-off" : "eye"} size={14} color="#aaa" />
-          <Text style={styles.localToggleText}>Readings</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity 
+            style={styles.localToggle} 
+            onPress={() => setShowContext(!showContext)}
+          >
+            <Ionicons name="image-outline" size={14} color="#aaa" />
+            <Text style={styles.localToggleText}>Context</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.localToggle} 
+            onPress={() => setLocalReveal(prev => ({ ...prev, readings: !prev.readings }))}
+          >
+            <Ionicons name={localReveal.readings ? "eye-off" : "eye"} size={14} color="#aaa" />
+            <Text style={styles.localToggleText}>Readings</Text>
+          </TouchableOpacity>
+        </View>
       </View>
+      
+      {showContext && renderContextImage()}
+
       <View style={styles.furiganaContainer}>
          <FuriganaText text={region.text} reading={region.reading} furiganaText={region.furiganaText} forceReveal={forceRevealReadings} />
       </View>
@@ -412,6 +485,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
               regionLayouts={regionLayouts}
               forceRevealAll={forceRevealAll}
               revealGroups={revealGroups}
+              screenshotUri={state.screenshotUri}
             />
           ))}
         </View>
