@@ -23,6 +23,11 @@ const defaultSettings: Settings = {
   darkMode: true,
   nightReader: false,
   disableSpoilers: false,
+  revealGroups: {
+    readings: false,
+    vocabulary: false,
+    grammar: false,
+  },
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);

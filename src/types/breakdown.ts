@@ -60,4 +60,9 @@ export interface Settings {
   darkMode: boolean;
   nightReader: boolean;
   disableSpoilers: boolean;
+  revealGroups: {
+    readings: boolean;
+    vocabulary: boolean;
+    grammar: boolean;
+  };
 }

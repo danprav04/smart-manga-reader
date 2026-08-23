@@ -72,16 +72,111 @@ const Spoiler = ({ children, style, small, forceReveal }: { children: React.Reac
   );
 };
 
-export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>(({ onDismiss, onReanalyze }, ref) => {
-  const { state } = useBreakdown();
-  const { settings } = useSettings();
-  const [revealGroups, setRevealGroups] = useState({
-    all: false,
+const RegionCard = ({ 
+  region, 
+  index, 
+  vocabulary, 
+  grammarPoints, 
+  regionLayouts, 
+  forceRevealAll, 
+  revealGroups 
+}: any) => {
+  const [localReveal, setLocalReveal] = useState({
     readings: false,
     vocabulary: false,
     grammar: false,
   });
-  const forceRevealAll = revealGroups.all || settings.disableSpoilers;
+
+  const forceRevealReadings = forceRevealAll || revealGroups.readings || localReveal.readings;
+  const forceRevealVocab = forceRevealAll || revealGroups.vocabulary || localReveal.vocabulary;
+  const forceRevealGrammar = forceRevealAll || revealGroups.grammar || localReveal.grammar;
+
+  return (
+    <View 
+      style={styles.card}
+      onLayout={(event) => {
+        const layout = event.nativeEvent.layout;
+        regionLayouts.current[index] = layout.y;
+      }}
+    >
+      <View style={styles.cardHeader}>
+        <Text style={styles.regionNumber}>Region {index + 1}</Text>
+        <TouchableOpacity 
+          style={styles.localToggle} 
+          onPress={() => setLocalReveal(prev => ({ ...prev, readings: !prev.readings }))}
+        >
+          <Ionicons name={localReveal.readings ? "eye-off" : "eye"} size={14} color="#aaa" />
+          <Text style={styles.localToggleText}>Readings</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.furiganaContainer}>
+         <FuriganaText text={region.text} reading={region.reading} furiganaText={region.furiganaText} forceReveal={forceRevealReadings} />
+      </View>
+      
+      <Spoiler style={styles.translationContainer} forceReveal={forceRevealAll}>
+        <Text style={styles.translation} selectable>{region.translation}</Text>
+      </Spoiler>
+      
+      {/* Region Vocabulary */}
+      {vocabulary.filter((v: any) => v.regionIndex === index).length > 0 && (
+        <View style={styles.subSection}>
+          <View style={styles.subSectionHeader}>
+            <Text style={styles.subTitle}>Vocabulary</Text>
+            <TouchableOpacity 
+              style={styles.localToggle} 
+              onPress={() => setLocalReveal(prev => ({ ...prev, vocabulary: !prev.vocabulary }))}
+            >
+              <Ionicons name={localReveal.vocabulary ? "eye-off" : "eye"} size={14} color="#aaa" />
+              <Text style={styles.localToggleText}>Reveal</Text>
+            </TouchableOpacity>
+          </View>
+          {vocabulary.filter((v: any) => v.regionIndex === index).map((v: any, vIndex: number) => (
+            <View key={vIndex} style={styles.vocabItem}>
+              <Text style={styles.vocabWord} selectable>{v.word}</Text>
+              <Spoiler style={styles.vocabSpoiler} small={true} forceReveal={forceRevealVocab}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                  <Text style={styles.vocabReading} selectable>({v.reading})</Text>
+                  <Text style={styles.vocabMeaning} selectable>- {v.meaning}</Text>
+                </View>
+              </Spoiler>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Region Grammar */}
+      {grammarPoints.filter((g: any) => g.regionIndex === index).length > 0 && (
+        <View style={styles.subSection}>
+          <View style={styles.subSectionHeader}>
+            <Text style={styles.subTitle}>Grammar</Text>
+            <TouchableOpacity 
+              style={styles.localToggle} 
+              onPress={() => setLocalReveal(prev => ({ ...prev, grammar: !prev.grammar }))}
+            >
+              <Ionicons name={localReveal.grammar ? "eye-off" : "eye"} size={14} color="#aaa" />
+              <Text style={styles.localToggleText}>Reveal</Text>
+            </TouchableOpacity>
+          </View>
+          {grammarPoints.filter((g: any) => g.regionIndex === index).map((g: any, gIndex: number) => (
+            <View key={gIndex} style={styles.grammarItem}>
+              <Text style={styles.grammarPattern} selectable>{g.pattern}</Text>
+              <Spoiler style={styles.grammarSpoiler} forceReveal={forceRevealGrammar}>
+                <Text style={styles.grammarExplanation} selectable>{g.explanation}</Text>
+              </Spoiler>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
+export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>(({ onDismiss, onReanalyze }, ref) => {
+  const { state } = useBreakdown();
+  const { settings, updateSettings } = useSettings();
+  const [revealAll, setRevealAll] = useState(false);
+  const forceRevealAll = revealAll || settings.disableSpoilers;
+  const revealGroups = settings.revealGroups || { readings: false, vocabulary: false, grammar: false };
   
   const scrollViewRef = useRef<ScrollView>(null);
   const regionLayouts = useRef<{ [key: number]: number }>({});
@@ -94,7 +189,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
     if (state.overlayVisible) {
       translateY.setValue(SNAP_TOP_COLLAPSED);
       currentSnap.current = SNAP_TOP_COLLAPSED;
-      setRevealGroups({ all: false, readings: false, vocabulary: false, grammar: false });
+      setRevealAll(false);
     }
   }, [state.overlayVisible]);
 
@@ -193,6 +288,15 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
     grammarPoints = [] 
   } = state.currentBreakdown;
 
+  const handleToggleGroup = (group: keyof typeof revealGroups) => {
+    updateSettings({
+      revealGroups: {
+        ...revealGroups,
+        [group]: !revealGroups[group]
+      }
+    });
+  };
+
   return (
     <Animated.View
       style={[
@@ -221,8 +325,8 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
           {!state.isAnalyzing && (
             <>
               {!settings.disableSpoilers && (
-                <TouchableOpacity activeOpacity={0.7} style={styles.iconButton} onPress={() => setRevealGroups(prev => ({ ...prev, all: !prev.all }))}>
-                  <Ionicons name={revealGroups.all ? "eye-off-outline" : "eye-outline"} size={20} color="#fff" />
+                <TouchableOpacity activeOpacity={0.7} style={styles.iconButton} onPress={() => setRevealAll(!revealAll)}>
+                  <Ionicons name={revealAll ? "eye-off-outline" : "eye-outline"} size={20} color="#fff" />
                 </TouchableOpacity>
               )}
               <TouchableOpacity activeOpacity={0.7} style={[styles.iconButton, styles.primaryIconButton]} onPress={onReanalyze}>
@@ -247,7 +351,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
         <View style={styles.groupToggles}>
           <TouchableOpacity 
             style={[styles.groupToggle, revealGroups.readings && styles.groupToggleActive]} 
-            onPress={() => setRevealGroups(prev => ({ ...prev, readings: !prev.readings }))}
+            onPress={() => handleToggleGroup('readings')}
           >
             <Ionicons name={revealGroups.readings ? "eye-off" : "eye"} size={14} color={revealGroups.readings ? "#000" : "#bbb"} />
             <Text style={[styles.groupToggleText, revealGroups.readings && styles.groupToggleTextActive]}>Readings</Text>
@@ -255,7 +359,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
 
           <TouchableOpacity 
             style={[styles.groupToggle, revealGroups.vocabulary && styles.groupToggleActive]} 
-            onPress={() => setRevealGroups(prev => ({ ...prev, vocabulary: !prev.vocabulary }))}
+            onPress={() => handleToggleGroup('vocabulary')}
           >
             <Ionicons name={revealGroups.vocabulary ? "eye-off" : "eye"} size={14} color={revealGroups.vocabulary ? "#000" : "#bbb"} />
             <Text style={[styles.groupToggleText, revealGroups.vocabulary && styles.groupToggleTextActive]}>Vocab</Text>
@@ -263,7 +367,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
 
           <TouchableOpacity 
             style={[styles.groupToggle, revealGroups.grammar && styles.groupToggleActive]} 
-            onPress={() => setRevealGroups(prev => ({ ...prev, grammar: !prev.grammar }))}
+            onPress={() => handleToggleGroup('grammar')}
           >
             <Ionicons name={revealGroups.grammar ? "eye-off" : "eye"} size={14} color={revealGroups.grammar ? "#000" : "#bbb"} />
             <Text style={[styles.groupToggleText, revealGroups.grammar && styles.groupToggleTextActive]}>Grammar</Text>
@@ -296,59 +400,19 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
           }}
         >
           <Text style={styles.sectionTitle}>💬 Text Regions</Text>
-          {textRegions.map((region, index) => (
-            <View 
-              key={index} 
-              style={styles.card}
-              onLayout={(event) => {
-                const layout = event.nativeEvent.layout;
-                regionLayouts.current[index] = layout.y;
-              }}
-            >
-              <View style={styles.cardHeader}>
-                <Text style={styles.regionNumber}>Region {index + 1}</Text>
-              </View>
-              <View style={styles.furiganaContainer}>
-                 <FuriganaText text={region.text} reading={region.reading} furiganaText={region.furiganaText} forceReveal={forceRevealAll || revealGroups.readings} />
-              </View>
-              
-              <Spoiler style={styles.translationContainer} forceReveal={forceRevealAll}>
-                <Text style={styles.translation} selectable>{region.translation}</Text>
-              </Spoiler>
-              
-              {/* Region Vocabulary */}
-              {vocabulary.filter(v => v.regionIndex === index).length > 0 && (
-                <View style={styles.subSection}>
-                  <Text style={styles.subTitle}>Vocabulary</Text>
-                  {vocabulary.filter(v => v.regionIndex === index).map((v, vIndex) => (
-                    <View key={vIndex} style={styles.vocabItem}>
-                      <Text style={styles.vocabWord} selectable>{v.word}</Text>
-                      <Spoiler style={styles.vocabSpoiler} small={true} forceReveal={forceRevealAll || revealGroups.vocabulary}>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                          <Text style={styles.vocabReading} selectable>({v.reading})</Text>
-                          <Text style={styles.vocabMeaning} selectable>- {v.meaning}</Text>
-                        </View>
-                      </Spoiler>
-                    </View>
-                  ))}
-                </View>
-              )}
 
-              {/* Region Grammar */}
-              {grammarPoints.filter(g => g.regionIndex === index).length > 0 && (
-                <View style={styles.subSection}>
-                  <Text style={styles.subTitle}>Grammar</Text>
-                  {grammarPoints.filter(g => g.regionIndex === index).map((g, gIndex) => (
-                    <View key={gIndex} style={styles.grammarItem}>
-                      <Text style={styles.grammarPattern} selectable>{g.pattern}</Text>
-                      <Spoiler style={styles.grammarSpoiler} forceReveal={forceRevealAll || revealGroups.grammar}>
-                        <Text style={styles.grammarExplanation} selectable>{g.explanation}</Text>
-                      </Spoiler>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
+
+          {textRegions.map((region, index) => (
+            <RegionCard
+              key={index}
+              region={region}
+              index={index}
+              vocabulary={vocabulary}
+              grammarPoints={grammarPoints}
+              regionLayouts={regionLayouts}
+              forceRevealAll={forceRevealAll}
+              revealGroups={revealGroups}
+            />
           ))}
         </View>
 
@@ -503,6 +567,9 @@ const styles = StyleSheet.create({
     borderColor: '#3a3a5e',
   },
   cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
   },
   regionNumber: {
@@ -528,11 +595,16 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: '#3a3a5e',
   },
+  subSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   subTitle: {
     fontSize: 16,
     color: '#999',
     fontWeight: 'bold',
-    marginBottom: 8,
   },
   vocabItem: {
     flexDirection: 'row',
@@ -573,5 +645,19 @@ const styles = StyleSheet.create({
     color: '#ddd',
     fontSize: 16,
     lineHeight: 24,
+  },
+  localToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  localToggleText: {
+    color: '#aaa',
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
