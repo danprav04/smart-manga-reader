@@ -216,14 +216,12 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
           {!state.isAnalyzing && (
             <>
               {!settings.disableSpoilers && (
-                <TouchableOpacity activeOpacity={0.7} style={styles.secondaryButton} onPress={() => setRevealAll(!revealAll)}>
-                  <Ionicons name={revealAll ? "eye-off-outline" : "eye-outline"} size={16} color="#fff" />
-                  <Text style={styles.secondaryButtonText}>{revealAll ? 'Hide All' : 'Reveal All'}</Text>
+                <TouchableOpacity activeOpacity={0.7} style={styles.iconButton} onPress={() => setRevealAll(!revealAll)}>
+                  <Ionicons name={revealAll ? "eye-off-outline" : "eye-outline"} size={20} color="#fff" />
                 </TouchableOpacity>
               )}
-              <TouchableOpacity activeOpacity={0.7} style={styles.primaryButton} onPress={onReanalyze}>
-                <Ionicons name="refresh" size={16} color="#fff" />
-                <Text style={styles.primaryButtonText}>Re-analyze</Text>
+              <TouchableOpacity activeOpacity={0.7} style={[styles.iconButton, styles.primaryIconButton]} onPress={onReanalyze}>
+                <Ionicons name="refresh" size={20} color="#fff" />
               </TouchableOpacity>
             </>
           )}
@@ -400,37 +398,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  primaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#6366f1',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  secondaryButtonText: {
-    color: '#ddd',
-    fontSize: 14,
-    fontWeight: '600',
+  primaryIconButton: {
+    backgroundColor: '#6366f1',
   },
   ghostButton: {
-    padding: 4,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   contentContainer: {
     flex: 1,
