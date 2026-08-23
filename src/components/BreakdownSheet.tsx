@@ -36,11 +36,8 @@ const Spoiler = ({ children, style, small }: { children: React.ReactNode, style?
       style={[
         style, 
         !revealed && { 
-          backgroundColor: '#2a2a40', 
-          borderRadius: 6, 
-          borderWidth: 1,
-          borderColor: '#5a5a7a',
-          borderStyle: 'dashed',
+          backgroundColor: 'rgba(255, 255, 255, 0.08)', 
+          borderRadius: small ? 4 : 8, 
           overflow: 'hidden',
         }
       ]}
@@ -48,18 +45,18 @@ const Spoiler = ({ children, style, small }: { children: React.ReactNode, style?
       <View pointerEvents={revealed ? 'auto' : 'none'} style={!revealed ? { opacity: 0 } : undefined}>
         {children}
       </View>
-      {!revealed && (
+      {!revealed && !small && (
         <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
           <View style={{ 
             flexDirection: 'row', 
             alignItems: 'center', 
-            backgroundColor: 'rgba(0,0,0,0.6)', 
-            paddingHorizontal: small ? 6 : 10, 
-            paddingVertical: small ? 4 : 4, 
-            borderRadius: 12 
+            backgroundColor: 'rgba(0,0,0,0.5)', 
+            paddingHorizontal: 12, 
+            paddingVertical: 6, 
+            borderRadius: 16 
           }}>
-            <Ionicons name="eye-outline" size={small ? 14 : 14} color="#ccc" style={!small ? { marginRight: 6 } : undefined} />
-            {!small && <Text style={{ color: '#ccc', fontSize: 12, fontWeight: '600' }}>Reveal</Text>}
+            <Ionicons name="eye-outline" size={16} color="#ddd" style={{ marginRight: 6 }} />
+            <Text style={{ color: '#ddd', fontSize: 13, fontWeight: '600' }}>Tap to reveal</Text>
           </View>
         </View>
       )}

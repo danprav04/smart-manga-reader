@@ -95,23 +95,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#888',
     marginBottom: -2, // pull it closer to the main text
-    borderWidth: 1,
-    borderColor: 'transparent',
   },
   rubyPlaceholder: {
     fontSize: 14,
     marginBottom: -2,
-    borderWidth: 1,
-    borderColor: 'transparent',
     opacity: 0,
   },
   hiddenRuby: {
-    backgroundColor: '#3a3a5e',
-    color: '#3a3a5e',
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#7a7a9a',
-    borderStyle: 'dashed',
+    backgroundColor: '#383854',
+    color: '#383854',
+    borderRadius: 3,
     overflow: 'hidden',
   },
   text: {
