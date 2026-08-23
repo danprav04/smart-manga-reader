@@ -27,6 +27,21 @@ interface BreakdownSheetProps {
   onReanalyze: () => void;
 }
 
+const Spoiler = ({ children, style }: { children: React.ReactNode, style?: any }) => {
+  const [revealed, setRevealed] = useState(false);
+  return (
+    <TouchableOpacity 
+      activeOpacity={0.9} 
+      onPress={() => setRevealed(!revealed)}
+      style={[style, !revealed && { backgroundColor: '#3a3a5e', borderRadius: 4, overflow: 'hidden' }]}
+    >
+      <View pointerEvents={revealed ? 'auto' : 'none'} style={!revealed ? { opacity: 0 } : undefined}>
+        {children}
+      </View>
+    </TouchableOpacity>
+  );
+};
+
 export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>(({ onDismiss, onReanalyze }, ref) => {
   const { state } = useBreakdown();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -192,7 +207,9 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
         {fullTranslation && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📖 Full Translation</Text>
-            <Text style={styles.bodyText} selectable>{fullTranslation}</Text>
+            <Spoiler>
+              <Text style={styles.bodyText} selectable>{fullTranslation}</Text>
+            </Spoiler>
           </View>
         )}
 
@@ -219,7 +236,10 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
               <View style={styles.furiganaContainer}>
                  <FuriganaText text={region.text} reading={region.reading} furiganaText={region.furiganaText} />
               </View>
-              <Text style={styles.translation} selectable>{region.translation}</Text>
+              
+              <Spoiler style={styles.translationContainer}>
+                <Text style={styles.translation} selectable>{region.translation}</Text>
+              </Spoiler>
               
               {/* Region Vocabulary */}
               {vocabulary.filter(v => v.regionIndex === index).length > 0 && (
@@ -228,8 +248,10 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
                   {vocabulary.filter(v => v.regionIndex === index).map((v, vIndex) => (
                     <View key={vIndex} style={styles.vocabItem}>
                       <Text style={styles.vocabWord} selectable>{v.word}</Text>
-                      <Text style={styles.vocabReading} selectable>({v.reading})</Text>
-                      <Text style={styles.vocabMeaning} selectable>- {v.meaning}</Text>
+                      <Spoiler style={styles.vocabSpoiler}>
+                        <Text style={styles.vocabReading} selectable>({v.reading})</Text>
+                        <Text style={styles.vocabMeaning} selectable>- {v.meaning}</Text>
+                      </Spoiler>
                     </View>
                   ))}
                 </View>
@@ -242,7 +264,9 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
                   {grammarPoints.filter(g => g.regionIndex === index).map((g, gIndex) => (
                     <View key={gIndex} style={styles.grammarItem}>
                       <Text style={styles.grammarPattern} selectable>{g.pattern}</Text>
-                      <Text style={styles.grammarExplanation} selectable>{g.explanation}</Text>
+                      <Spoiler style={styles.grammarSpoiler}>
+                        <Text style={styles.grammarExplanation} selectable>{g.explanation}</Text>
+                      </Spoiler>
                     </View>
                   ))}
                 </View>
@@ -357,15 +381,15 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 12,
   },
   bodyText: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#ddd',
-    lineHeight: 24,
+    lineHeight: 28,
   },
   card: {
     backgroundColor: '#252542',
@@ -379,18 +403,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   regionNumber: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#aaa',
     fontWeight: 'bold',
   },
   furiganaContainer: {
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  translationContainer: {
+    marginBottom: 12,
+    alignSelf: 'flex-start',
   },
   translation: {
-    fontSize: 15,
+    fontSize: 17,
     color: '#bbb',
     fontStyle: 'italic',
-    marginBottom: 12,
   },
   subSection: {
     marginTop: 12,
@@ -399,7 +426,7 @@ const styles = StyleSheet.create({
     borderColor: '#3a3a5e',
   },
   subTitle: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#999',
     fontWeight: 'bold',
     marginBottom: 8,
@@ -407,30 +434,45 @@ const styles = StyleSheet.create({
   vocabItem: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 4,
+    alignItems: 'center',
+    marginBottom: 8,
   },
   vocabWord: {
+    fontSize: 16,
     color: '#4CAF50',
     fontWeight: 'bold',
-    marginRight: 4,
+    marginRight: 6,
+  },
+  vocabSpoiler: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    flexShrink: 1,
+    alignItems: 'center',
   },
   vocabReading: {
+    fontSize: 16,
     color: '#888',
-    marginRight: 4,
+    marginRight: 6,
   },
   vocabMeaning: {
+    fontSize: 16,
     color: '#ddd',
   },
   grammarItem: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
   grammarPattern: {
+    fontSize: 16,
     color: '#FF9800',
     fontWeight: 'bold',
-    marginBottom: 2,
+    marginBottom: 4,
+  },
+  grammarSpoiler: {
+    alignSelf: 'flex-start',
   },
   grammarExplanation: {
     color: '#ddd',
-    fontSize: 14,
+    fontSize: 16,
+    lineHeight: 24,
   },
 });

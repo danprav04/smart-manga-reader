@@ -7,6 +7,7 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useSettings } from '../src/store/settingsStore';
 import { useBreakdown } from '../src/store/breakdownStore';
@@ -36,6 +37,7 @@ export default function ReaderScreen() {
   const [canGoBack, setCanGoBack] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [currentScrollY, setCurrentScrollY] = useState(0);
+  const [isPeeking, setIsPeeking] = useState(false);
 
   React.useEffect(() => {
     const onBackPress = () => {
@@ -328,37 +330,49 @@ export default function ReaderScreen() {
         }}
       >
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <OverlayLayer 
-            onRegionTap={handleRegionTap}
-            onDismiss={() => {
-              if (sheetRef.current) {
-                sheetRef.current.dismiss();
-              } else {
+          <View style={{ flex: 1, opacity: isPeeking ? 0 : 1 }} pointerEvents={isPeeking ? "none" : "auto"}>
+            <OverlayLayer 
+              onRegionTap={handleRegionTap}
+              onDismiss={() => {
+                if (sheetRef.current) {
+                  sheetRef.current.dismiss();
+                } else {
+                  dispatch({ type: 'DISMISS_OVERLAY' });
+                  if (state.isAnalyzing) abortControllerRef.current?.abort();
+                }
+              }}
+            />
+            <BreakdownSheet 
+              ref={sheetRef} 
+              onDismiss={() => {
                 dispatch({ type: 'DISMISS_OVERLAY' });
                 if (state.isAnalyzing) abortControllerRef.current?.abort();
-              }
-            }}
-          />
-          <BreakdownSheet 
-            ref={sheetRef} 
-            onDismiss={() => {
-              dispatch({ type: 'DISMISS_OVERLAY' });
-              if (state.isAnalyzing) abortControllerRef.current?.abort();
-            }}
-            onReanalyze={handleReanalyze}
-          />
+              }}
+              onReanalyze={handleReanalyze}
+            />
 
-          {/* Settings Button (Inside Modal) */}
+            {/* Settings Button (Inside Modal) */}
+            <TouchableOpacity 
+              style={[styles.settingsButton, { top: Math.max(insets.top, 16) + 10 }]} 
+              onPress={() => {
+                dispatch({ type: 'DISMISS_OVERLAY' });
+                if (state.isAnalyzing) abortControllerRef.current?.abort();
+                router.push('/settings');
+              }}
+              activeOpacity={0.7}
+            >
+              <RNText style={styles.settingsIcon}>⚙️</RNText>
+            </TouchableOpacity>
+          </View>
+
+          {/* Peek Button (Eye) */}
           <TouchableOpacity 
-            style={[styles.settingsButton, { top: Math.max(insets.top, 16) + 10 }]} 
-            onPress={() => {
-              dispatch({ type: 'DISMISS_OVERLAY' });
-              if (state.isAnalyzing) abortControllerRef.current?.abort();
-              router.push('/settings');
-            }}
+            style={[styles.peekButton, { top: Math.max(insets.top, 16) + 10 }]} 
+            onPressIn={() => setIsPeeking(true)}
+            onPressOut={() => setIsPeeking(false)}
             activeOpacity={0.7}
           >
-            <RNText style={styles.settingsIcon}>⚙️</RNText>
+            <Ionicons name="eye" size={24} color={isPeeking ? "#4CAF50" : "#fff"} />
           </TouchableOpacity>
         </GestureHandlerRootView>
       </Modal>
