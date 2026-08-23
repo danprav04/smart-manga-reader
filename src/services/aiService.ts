@@ -96,21 +96,6 @@ const cleanJsonString = (str: string) => {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const fetchWithRetry = async (url: string, options: RequestInit, maxRetries = 3): Promise<Response> => {
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    const response = await fetch(url, options);
-    // If it's a 429 Too Many Requests, wait and retry
-    if (response.status === 429) {
-      const waitTime = Math.min(8000, 1000 * Math.pow(2, attempt) + Math.random() * 1000);
-      logger.warn(LogCategory.AI, `Rate limited (429). Retrying in ${Math.round(waitTime)}ms... (Attempt ${attempt + 1}/${maxRetries})`);
-      await delay(waitTime);
-      continue;
-    }
-    return response;
-  }
-  // If we exhaust retries or it's not a 429, just do a final fetch or return the last response
-  return fetch(url, options);
-};
 
 
 const mapParsedBreakdown = (parsed: any): BreakdownResult => {
@@ -587,67 +572,150 @@ const analyzeWithOpenAI = async (
     logger.info(LogCategory.AI, `Using OpenAI API with model: ${modelToUse} (FastPass: ${isFastPass})`);
     
     try {
-      const response = await fetchWithRetry(url, {
-        method: 'POST',
-        signal,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: modelToUse,
-          response_format: { type: "json_object" },
-          messages: [
-            { role: 'system', content: isFastPass ? getFastPassPrompt() : getSystemPrompt(settings.japaneseLevel) },
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: isFastPass ? 'Extract text regions from this manga page. Output JSON format.' : 'Analyze this manga page. Output JSON format.' },
-                {
-                  type: 'image_url',
-                  image_url: { url: `data:image/jpeg;base64,${base64Image}` }
-                }
-              ]
-            }
-          ]
-        })
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        let errorMessage = errText;
-        try {
-          const parsed = JSON.parse(errText);
-          if (parsed.error && parsed.error.message) {
-            errorMessage = parsed.error.message;
-          } else if (parsed.detail) {
-            errorMessage = typeof parsed.detail === 'string' ? parsed.detail : JSON.stringify(parsed.detail);
-            try {
-              const detailParsed = JSON.parse(errorMessage);
-              if (detailParsed.error && detailParsed.error.message) {
-                errorMessage = detailParsed.error.message;
+      const payload = {
+        model: modelToUse,
+        response_format: { type: "json_object" },
+        stream: true,
+        messages: [
+          { role: 'system', content: isFastPass ? getFastPassPrompt() : getSystemPrompt(settings.japaneseLevel) },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: isFastPass ? 'Extract text regions from this manga page. Output JSON format.' : 'Analyze this manga page. Output JSON format.' },
+              {
+                type: 'image_url',
+                image_url: { url: `data:image/jpeg;base64,${base64Image}` }
               }
-            } catch (e) {
-              // detail is not json, keep as is
-            }
+            ]
           }
-        } catch (e) {
-          // not json, keep original text
+        ]
+      };
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const jsonString = await new Promise<string>((resolve, reject) => {
+            let fullText = '';
+            let isDone = false;
+            let lastReportTime = 0;
+            let firstChunkTime = 0;
+            const requestStartTime = Date.now();
+            
+            const es = new EventSource(url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+              },
+              body: JSON.stringify(payload),
+            });
+
+            if (signal) {
+              if (signal.aborted) {
+                reject(new Error('Aborted'));
+                return;
+              }
+              signal.addEventListener('abort', () => {
+                es.close();
+                reject(new Error('Aborted'));
+              });
+            }
+
+            es.addEventListener('message', (event: any) => {
+              if (event.data === '[DONE]') {
+                isDone = true;
+                es.removeAllEventListeners();
+                es.close();
+                resolve(fullText);
+                return;
+              }
+              
+              if (event.data) {
+                try {
+                  const now = Date.now();
+                  if (firstChunkTime === 0) {
+                    firstChunkTime = now;
+                    logger.info(LogCategory.AI, `First chunk received from OpenAI after ${firstChunkTime - requestStartTime}ms`);
+                  }
+                  
+                  const data = JSON.parse(event.data);
+                  const chunk = data.choices?.[0]?.delta?.content || '';
+                  fullText += chunk;
+                  
+                  if (onProgress && (now - lastReportTime > 500)) {
+                    lastReportTime = now;
+                    
+                    try {
+                      const cleaned = cleanJsonString(fullText);
+                      if (cleaned.endsWith('}')) {
+                        const parsed = JSON.parse(cleaned);
+                        if (parsed.textRegions && parsed.detailedAnalysis && parsed.contextNotes !== undefined) {
+                          logger.info(LogCategory.AI, "JSON fully formed, aggressively terminating stream.");
+                          isDone = true;
+                          es.removeAllEventListeners();
+                          es.close();
+                          resolve(fullText);
+                          return;
+                        }
+                      }
+                    } catch (e) {}
+
+                    const partial = extractPartialBreakdown(fullText);
+                    onProgress(mapParsedBreakdown(partial));
+                  }
+                } catch (e) {
+                  // Ignore JSON parse errors for chunks
+                }
+              }
+            });
+
+            es.addEventListener('error', (err: any) => {
+              es.removeAllEventListeners();
+              es.close();
+              if (!isDone) {
+                const status = err.status || err.type;
+                logger.warn(LogCategory.AI, `Stream error after ${Date.now() - requestStartTime}ms: ${status}`);
+                
+                if (status === 429 || (err.message && err.message.includes('429'))) {
+                  reject(new Error('429'));
+                  return;
+                }
+                
+                if (fullText.length > 500) {
+                  logger.info(LogCategory.AI, "Stream errored but we have substantial data. Attempting to salvage...");
+                  isDone = true;
+                  resolve(fullText);
+                } else {
+                  reject(new Error(`Stream error: ${status}`));
+                }
+              }
+            });
+
+            es.addEventListener('close', () => {
+              if (!isDone) {
+                isDone = true;
+                es.removeAllEventListeners();
+                es.close();
+                logger.info(LogCategory.AI, `Stream completed in ${Date.now() - requestStartTime}ms`);
+                resolve(fullText);
+              }
+            });
+          });
+
+          logger.debug(LogCategory.AI, `Successfully received complete stream from OpenAI model ${modelToUse}, parsing JSON...`);
+          return parseAndSalvageJson(jsonString);
+
+        } catch (err: any) {
+          const errMsg = err.message || '';
+          if (errMsg.includes('429')) {
+            const waitTime = Math.min(8000, 1000 * Math.pow(2, attempt) + Math.random() * 1000);
+            logger.warn(LogCategory.AI, `Rate limited (429) on stream. Retrying in ${Math.round(waitTime)}ms...`);
+            await delay(waitTime);
+            continue;
+          }
+          throw err;
         }
-        
-        logger.warn(LogCategory.AI, `OpenAI API error with model ${modelToUse}: status ${response.status}`);
-        throw new Error(`OpenAI API error with model ${modelToUse}: ${errorMessage}`);
       }
-
-      const data = await response.json();
-      const jsonString = data.choices?.[0]?.message?.content;
-      if (!jsonString) {
-        logger.warn(LogCategory.AI, `Invalid response format from OpenAI API model ${modelToUse}`);
-        throw new Error(`Invalid response from OpenAI API model ${modelToUse}`);
-      }
-
-      logger.debug(LogCategory.AI, `Successfully received response from OpenAI model ${modelToUse}, parsing JSON...`);
-      return parseAndSalvageJson(jsonString);
+      throw new Error(`Exhausted retries for OpenAI model ${modelToUse}`);
     } catch (error: any) {
       if (error.name === 'AbortError' || error.message?.includes('Aborted') || error.message?.includes('aborted')) {
         throw error;

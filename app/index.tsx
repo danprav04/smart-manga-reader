@@ -27,8 +27,8 @@ export default function ReaderScreen() {
   const { settings, updateSettings } = useSettings();
   const { state, dispatch } = useBreakdown();
   
-  const webViewRef = useRef<WebView>(null);
-  const viewShotRef = useRef<ViewShot>(null);
+  const webViewRef = useRef<any>(null);
+  const viewShotRef = useRef<any>(null);
   const sheetRef = useRef<BreakdownSheetRef>(null);
   const lastProcessedUrl = useRef<string | null>(null);
   const lastAnalyzedScrollY = useRef<number>(0);
@@ -241,12 +241,13 @@ export default function ReaderScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: settings.darkMode ? '#000' : '#F2F2F7' }]}>
       <ViewShot ref={viewShotRef} style={[styles.container, { backgroundColor: settings.darkMode ? '#000' : '#F2F2F7' }]} options={{ format: 'jpg', quality: 0.9 }}>
+        {/* @ts-ignore */}
         <WebView
           ref={webViewRef}
           source={{ uri: settings.readerBaseUrl || readerConfig.defaultUrl }}
           userAgent={readerConfig.userAgent}
           onNavigationStateChange={handleNavigationStateChange}
-          onShouldStartLoadWithRequest={(request) => {
+          onShouldStartLoadWithRequest={(request: any) => {
             setIsPageLoading(true);
             return true;
           }}
