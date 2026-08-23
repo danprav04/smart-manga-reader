@@ -75,8 +75,13 @@ const Spoiler = ({ children, style, small, forceReveal }: { children: React.Reac
 export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>(({ onDismiss, onReanalyze }, ref) => {
   const { state } = useBreakdown();
   const { settings } = useSettings();
-  const [revealAll, setRevealAll] = useState(false);
-  const forceReveal = revealAll || settings.disableSpoilers;
+  const [revealGroups, setRevealGroups] = useState({
+    all: false,
+    readings: false,
+    vocabulary: false,
+    grammar: false,
+  });
+  const forceRevealAll = revealGroups.all || settings.disableSpoilers;
   
   const scrollViewRef = useRef<ScrollView>(null);
   const regionLayouts = useRef<{ [key: number]: number }>({});
@@ -89,7 +94,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
     if (state.overlayVisible) {
       translateY.setValue(SNAP_TOP_COLLAPSED);
       currentSnap.current = SNAP_TOP_COLLAPSED;
-      setRevealAll(false);
+      setRevealGroups({ all: false, readings: false, vocabulary: false, grammar: false });
     }
   }, [state.overlayVisible]);
 
@@ -216,8 +221,8 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
           {!state.isAnalyzing && (
             <>
               {!settings.disableSpoilers && (
-                <TouchableOpacity activeOpacity={0.7} style={styles.iconButton} onPress={() => setRevealAll(!revealAll)}>
-                  <Ionicons name={revealAll ? "eye-off-outline" : "eye-outline"} size={20} color="#fff" />
+                <TouchableOpacity activeOpacity={0.7} style={styles.iconButton} onPress={() => setRevealGroups(prev => ({ ...prev, all: !prev.all }))}>
+                  <Ionicons name={revealGroups.all ? "eye-off-outline" : "eye-outline"} size={20} color="#fff" />
                 </TouchableOpacity>
               )}
               <TouchableOpacity activeOpacity={0.7} style={[styles.iconButton, styles.primaryIconButton]} onPress={onReanalyze}>
@@ -237,6 +242,35 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
         </View>
       </View>
 
+      {/* Group Reveal Controls */}
+      {!settings.disableSpoilers && !state.isAnalyzing && (
+        <View style={styles.groupToggles}>
+          <TouchableOpacity 
+            style={[styles.groupToggle, revealGroups.readings && styles.groupToggleActive]} 
+            onPress={() => setRevealGroups(prev => ({ ...prev, readings: !prev.readings }))}
+          >
+            <Ionicons name={revealGroups.readings ? "eye-off" : "eye"} size={14} color={revealGroups.readings ? "#000" : "#bbb"} />
+            <Text style={[styles.groupToggleText, revealGroups.readings && styles.groupToggleTextActive]}>Readings</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.groupToggle, revealGroups.vocabulary && styles.groupToggleActive]} 
+            onPress={() => setRevealGroups(prev => ({ ...prev, vocabulary: !prev.vocabulary }))}
+          >
+            <Ionicons name={revealGroups.vocabulary ? "eye-off" : "eye"} size={14} color={revealGroups.vocabulary ? "#000" : "#bbb"} />
+            <Text style={[styles.groupToggleText, revealGroups.vocabulary && styles.groupToggleTextActive]}>Vocab</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.groupToggle, revealGroups.grammar && styles.groupToggleActive]} 
+            onPress={() => setRevealGroups(prev => ({ ...prev, grammar: !prev.grammar }))}
+          >
+            <Ionicons name={revealGroups.grammar ? "eye-off" : "eye"} size={14} color={revealGroups.grammar ? "#000" : "#bbb"} />
+            <Text style={[styles.groupToggleText, revealGroups.grammar && styles.groupToggleTextActive]}>Grammar</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Content */}
       <ScrollView 
         ref={scrollViewRef} 
@@ -248,7 +282,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
         {fullTranslation && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📖 Full Translation</Text>
-            <Spoiler forceReveal={forceReveal}>
+            <Spoiler forceReveal={forceRevealAll}>
               <Text style={styles.bodyText} selectable>{fullTranslation}</Text>
             </Spoiler>
           </View>
@@ -275,10 +309,10 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
                 <Text style={styles.regionNumber}>Region {index + 1}</Text>
               </View>
               <View style={styles.furiganaContainer}>
-                 <FuriganaText text={region.text} reading={region.reading} furiganaText={region.furiganaText} forceReveal={forceReveal} />
+                 <FuriganaText text={region.text} reading={region.reading} furiganaText={region.furiganaText} forceReveal={forceRevealAll || revealGroups.readings} />
               </View>
               
-              <Spoiler style={styles.translationContainer} forceReveal={forceReveal}>
+              <Spoiler style={styles.translationContainer} forceReveal={forceRevealAll}>
                 <Text style={styles.translation} selectable>{region.translation}</Text>
               </Spoiler>
               
@@ -289,7 +323,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
                   {vocabulary.filter(v => v.regionIndex === index).map((v, vIndex) => (
                     <View key={vIndex} style={styles.vocabItem}>
                       <Text style={styles.vocabWord} selectable>{v.word}</Text>
-                      <Spoiler style={styles.vocabSpoiler} small={true} forceReveal={forceReveal}>
+                      <Spoiler style={styles.vocabSpoiler} small={true} forceReveal={forceRevealAll || revealGroups.vocabulary}>
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                           <Text style={styles.vocabReading} selectable>({v.reading})</Text>
                           <Text style={styles.vocabMeaning} selectable>- {v.meaning}</Text>
@@ -307,7 +341,7 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
                   {grammarPoints.filter(g => g.regionIndex === index).map((g, gIndex) => (
                     <View key={gIndex} style={styles.grammarItem}>
                       <Text style={styles.grammarPattern} selectable>{g.pattern}</Text>
-                      <Spoiler style={styles.grammarSpoiler} forceReveal={forceReveal}>
+                      <Spoiler style={styles.grammarSpoiler} forceReveal={forceRevealAll || revealGroups.grammar}>
                         <Text style={styles.grammarExplanation} selectable>{g.explanation}</Text>
                       </Spoiler>
                     </View>
@@ -365,9 +399,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 12,
+  },
+  groupToggles: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: '#3a3a5e',
     marginBottom: 8,
+    gap: 8,
+  },
+  groupToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+  },
+  groupToggleActive: {
+    backgroundColor: '#fff',
+  },
+  groupToggleText: {
+    color: '#bbb',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  groupToggleTextActive: {
+    color: '#000',
   },
   headerLeft: {
     flexDirection: 'row',
