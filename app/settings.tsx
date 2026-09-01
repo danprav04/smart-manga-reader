@@ -232,9 +232,11 @@ export default function SettingsScreen() {
         <View style={[styles.section, themeStyles.section]}>
           <Text style={[styles.sectionTitle, themeStyles.text]}>Daily Goals</Text>
 
-          <Text style={[styles.label, themeStyles.textSecondary]}>Daily Page Goal</Text>
-          <View style={[styles.row, { marginBottom: 16 }]}>
-            <Text style={[styles.labelBold, themeStyles.text]}>Pages per day to maintain streak</Text>
+          <View style={[styles.row, { borderBottomWidth: 0, marginBottom: 16 }]}>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <Text style={[styles.labelBold, themeStyles.text]}>Daily Page Goal</Text>
+              <Text style={[{ fontSize: 13, marginTop: 2 }, themeStyles.textSecondary]}>Pages per day to maintain streak</Text>
+            </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <TouchableOpacity
                 style={[styles.stepperBtn, { opacity: settings.goalSettings.dailyPageGoal <= 1 ? 0.3 : 1 }]}
@@ -264,7 +266,7 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          <View style={[styles.row, { borderBottomWidth: 0, marginBottom: 12 }]}>
+          <View style={[styles.row, { borderBottomWidth: 0, marginBottom: 16 }]}>
             <View style={{ flex: 1, marginRight: 12 }}>
               <Text style={[styles.labelBold, themeStyles.text]}>Streak Freeze</Text>
               <Text style={[{ fontSize: 13, marginTop: 2 }, themeStyles.textSecondary]}>Forgive one missed day per week</Text>
@@ -280,27 +282,21 @@ export default function SettingsScreen() {
             />
           </View>
 
-          <View style={[styles.row, { borderBottomWidth: 0 }]}>
+          <View style={[styles.row, { borderBottomWidth: 0, opacity: 0.4 }]} pointerEvents="none">
             <View style={{ flex: 1, marginRight: 12 }}>
               <Text style={[styles.labelBold, themeStyles.text]}>Question Check Model</Text>
-              <Text style={[{ fontSize: 13, marginTop: 2 }, themeStyles.textSecondary]}>Model used for checking answers</Text>
+              <Text style={[{ fontSize: 13, marginTop: 2 }, themeStyles.textSecondary]}>For future freeform answers</Text>
             </View>
             <View style={{ flexDirection: 'row', gap: 0 }}>
               <TouchableOpacity
                 style={[styles.segmentBtn, styles.segmentBtnLeft, settings.goalSettings.questionCheckModel === 'main' && styles.segmentBtnActive]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  updateSettings({ goalSettings: { ...settings.goalSettings, questionCheckModel: 'main' } });
-                }}
+                disabled={true}
               >
                 <Text style={[styles.segmentBtnText, settings.goalSettings.questionCheckModel === 'main' && styles.segmentBtnTextActive]}>Main</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.segmentBtn, styles.segmentBtnRight, settings.goalSettings.questionCheckModel === 'fast' && styles.segmentBtnActive]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  updateSettings({ goalSettings: { ...settings.goalSettings, questionCheckModel: 'fast' } });
-                }}
+                disabled={true}
               >
                 <Text style={[styles.segmentBtnText, settings.goalSettings.questionCheckModel === 'fast' && styles.segmentBtnTextActive]}>Fast</Text>
               </TouchableOpacity>

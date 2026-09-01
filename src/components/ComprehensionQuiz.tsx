@@ -148,15 +148,13 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 16,
   },
   sectionTitle: {
     color: '#ffffff',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
+    marginBottom: 4,
   },
   progressText: {
     color: '#a0a0c0',
