@@ -20,12 +20,15 @@ import { logger, LogCategory } from '../src/utils/logger';
 import { FloatingActionButton } from '../src/components/FloatingActionButton';
 import { OverlayLayer } from '../src/components/OverlayLayer';
 import { BreakdownSheet, BreakdownSheetRef } from '../src/components/BreakdownSheet';
+import { StreakBanner } from '../src/components/StreakBanner';
+import { useDailyGoal } from '../src/store/goalStore';
 
 export default function ReaderScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { settings, updateSettings } = useSettings();
   const { state, dispatch } = useBreakdown();
+  const goalContext = useDailyGoal();
   
   const webViewRef = useRef<any>(null);
   const viewShotRef = useRef<any>(null);
@@ -163,6 +166,9 @@ export default function ReaderScreen() {
       const domain = new URL(urlToAnalyze).hostname;
       await saveBreakdown(urlToAnalyze, domain, result, uri);
       logger.info(LogCategory.UI, `Analysis saved to database.`);
+      
+      // Refresh daily goal progress (saveBreakdown internally calls recordPageScanned)
+      try { await goalContext.refreshProgress(); } catch (e) { /* non-critical */ }
       
       lastAnalyzedScrollY.current = currentScrollY;
       dispatch({ type: 'ANALYSIS_COMPLETE', payload: { result, screenshotUri: uri } });
@@ -413,6 +419,38 @@ export default function ReaderScreen() {
       >
         <RNText style={styles.settingsIcon}>🕒</RNText>
       </TouchableOpacity>
+
+      {/* Progress Button */}
+      <TouchableOpacity 
+        style={[styles.settingsButton, { top: Math.max(insets.top, 16) + (isDifferentFromBase() ? 172 : 118) }]} 
+        onPress={() => router.push('/progress')}
+        activeOpacity={0.7}
+      >
+        <RNText style={styles.settingsIcon}>📊</RNText>
+      </TouchableOpacity>
+
+      {/* Daily Goal Completed Indicator */}
+      {goalContext.dailyGoalMet && !state.overlayVisible && (
+        <View 
+          style={[styles.settingsButton, { 
+            top: Math.max(insets.top, 16) + 10, 
+            left: undefined, 
+            right: 16, 
+            backgroundColor: 'rgba(52,199,89,0.85)' 
+          }]}
+          pointerEvents="none"
+        >
+          <Ionicons name="checkmark-circle" size={24} color="#fff" />
+        </View>
+      )}
+
+      {/* Streak Banner */}
+      <StreakBanner
+        visible={goalContext.state.goalJustCompleted}
+        streakCount={goalContext.state.streakData.currentStreak}
+        milestoneReached={goalContext.state.milestoneReached}
+        onDismiss={goalContext.dismissCelebration}
+      />
 
       {!state.overlayVisible && (
         <FloatingActionButton 

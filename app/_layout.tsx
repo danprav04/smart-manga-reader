@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SettingsProvider } from '../src/store/settingsStore';
 import { BreakdownProvider } from '../src/store/breakdownStore';
+import { GoalProvider } from '../src/store/goalStore';
 import { initDatabase } from '../src/services/databaseService';
 import { View, Text } from 'react-native';
 
@@ -23,12 +24,15 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SettingsProvider>
         <BreakdownProvider>
-          <Stack>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="settings" options={{ headerShown: false, presentation: 'modal' }} />
-            <Stack.Screen name="statistics" options={{ headerShown: false, presentation: 'modal' }} />
-            <Stack.Screen name="history" options={{ headerShown: false, presentation: 'modal' }} />
-          </Stack>
+          <GoalProvider>
+            <Stack>
+              <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="settings" options={{ headerShown: false, presentation: 'modal' }} />
+              <Stack.Screen name="statistics" options={{ headerShown: false, presentation: 'modal' }} />
+              <Stack.Screen name="history" options={{ headerShown: false, presentation: 'modal' }} />
+              <Stack.Screen name="progress" options={{ headerShown: false, presentation: 'modal' }} />
+            </Stack>
+          </GoalProvider>
         </BreakdownProvider>
       </SettingsProvider>
     </GestureHandlerRootView>

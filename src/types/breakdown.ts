@@ -22,12 +22,21 @@ export interface GrammarPoint {
   regionIndex: number;
 }
 
+export interface ComprehensionQuestion {
+  question: string;
+  type: 'multiple_choice';
+  options: string[];
+  correctAnswer: string;  // 'A', 'B', 'C', or 'D'
+  hint: string;
+}
+
 export interface BreakdownResult {
   textRegions: TextRegion[];
   vocabulary: VocabularyItem[];
   grammarPoints: GrammarPoint[];
   fullTranslation: string;
   contextNotes?: string;
+  comprehensionQuestions?: ComprehensionQuestion[];
 }
 
 export interface StoredBreakdown extends BreakdownResult {
@@ -44,6 +53,28 @@ export interface PageSummary {
   siteDomain: string;
   analyzedAt: string;
   screenshotPath?: string;
+}
+
+export interface DailyProgress {
+  date: string;              // 'YYYY-MM-DD'
+  pagesScanned: number;
+  pagesCompleted: number;    // pages with questions answered correctly
+  newWords: number;
+  newGrammar: number;
+}
+
+export interface StreakData {
+  currentStreak: number;
+  longestStreak: number;
+  lastActiveDate: string | null;
+  freezeAvailable: boolean;
+  freezeLastRecharged: string | null;
+}
+
+export interface GoalSettings {
+  dailyPageGoal: number;
+  streakFreezeEnabled: boolean;
+  questionCheckModel: 'main' | 'fast';
 }
 
 export interface Settings {
@@ -65,4 +96,5 @@ export interface Settings {
     vocabulary: boolean;
     grammar: boolean;
   };
+  goalSettings: GoalSettings;
 }

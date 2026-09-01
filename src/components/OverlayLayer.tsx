@@ -97,7 +97,7 @@ export const OverlayLayer: React.FC<OverlayLayerProps> = ({ onRegionTap, onDismi
 
 const styles = StyleSheet.create({
   fullScreen: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#000',
   },
   highlightZone: {

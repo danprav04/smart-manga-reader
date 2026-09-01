@@ -228,6 +228,85 @@ export default function SettingsScreen() {
             placeholderTextColor={themeStyles.placeholderTextColor}
           />
         </View>
+
+        <View style={[styles.section, themeStyles.section]}>
+          <Text style={[styles.sectionTitle, themeStyles.text]}>Daily Goals</Text>
+
+          <Text style={[styles.label, themeStyles.textSecondary]}>Daily Page Goal</Text>
+          <View style={[styles.row, { marginBottom: 16 }]}>
+            <Text style={[styles.labelBold, themeStyles.text]}>Pages per day to maintain streak</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <TouchableOpacity
+                style={[styles.stepperBtn, { opacity: settings.goalSettings.dailyPageGoal <= 1 ? 0.3 : 1 }]}
+                onPress={() => {
+                  if (settings.goalSettings.dailyPageGoal > 1) {
+                    Haptics.selectionAsync();
+                    updateSettings({ goalSettings: { ...settings.goalSettings, dailyPageGoal: settings.goalSettings.dailyPageGoal - 1 } });
+                  }
+                }}
+                disabled={settings.goalSettings.dailyPageGoal <= 1}
+              >
+                <Text style={styles.stepperBtnText}>−</Text>
+              </TouchableOpacity>
+              <Text style={[styles.stepperValue, themeStyles.text]}>{settings.goalSettings.dailyPageGoal}</Text>
+              <TouchableOpacity
+                style={[styles.stepperBtn, { opacity: settings.goalSettings.dailyPageGoal >= 20 ? 0.3 : 1 }]}
+                onPress={() => {
+                  if (settings.goalSettings.dailyPageGoal < 20) {
+                    Haptics.selectionAsync();
+                    updateSettings({ goalSettings: { ...settings.goalSettings, dailyPageGoal: settings.goalSettings.dailyPageGoal + 1 } });
+                  }
+                }}
+                disabled={settings.goalSettings.dailyPageGoal >= 20}
+              >
+                <Text style={styles.stepperBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={[styles.row, { borderBottomWidth: 0, marginBottom: 12 }]}>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <Text style={[styles.labelBold, themeStyles.text]}>Streak Freeze</Text>
+              <Text style={[{ fontSize: 13, marginTop: 2 }, themeStyles.textSecondary]}>Forgive one missed day per week</Text>
+            </View>
+            <Switch
+              value={settings.goalSettings.streakFreezeEnabled}
+              onValueChange={(val) => {
+                Haptics.selectionAsync();
+                updateSettings({ goalSettings: { ...settings.goalSettings, streakFreezeEnabled: val } });
+              }}
+              trackColor={{ false: '#767577', true: '#208AEF' }}
+              thumbColor={'#fff'}
+            />
+          </View>
+
+          <View style={[styles.row, { borderBottomWidth: 0 }]}>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <Text style={[styles.labelBold, themeStyles.text]}>Question Check Model</Text>
+              <Text style={[{ fontSize: 13, marginTop: 2 }, themeStyles.textSecondary]}>Model used for checking answers</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 0 }}>
+              <TouchableOpacity
+                style={[styles.segmentBtn, styles.segmentBtnLeft, settings.goalSettings.questionCheckModel === 'main' && styles.segmentBtnActive]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  updateSettings({ goalSettings: { ...settings.goalSettings, questionCheckModel: 'main' } });
+                }}
+              >
+                <Text style={[styles.segmentBtnText, settings.goalSettings.questionCheckModel === 'main' && styles.segmentBtnTextActive]}>Main</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.segmentBtn, styles.segmentBtnRight, settings.goalSettings.questionCheckModel === 'fast' && styles.segmentBtnActive]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  updateSettings({ goalSettings: { ...settings.goalSettings, questionCheckModel: 'fast' } });
+                }}
+              >
+                <Text style={[styles.segmentBtnText, settings.goalSettings.questionCheckModel === 'fast' && styles.segmentBtnTextActive]}>Fast</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
         
         <View style={[styles.section, themeStyles.section]}>
           <Text style={[styles.sectionTitle, themeStyles.text]}>Data & Statistics</Text>
@@ -288,4 +367,15 @@ const styles = StyleSheet.create({
   saveButtonText: { color: '#FFFFFF', fontSize: 17, fontWeight: '600' },
   actionButton: { paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 8 },
   actionButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+
+  stepperBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(150,150,150,0.2)', justifyContent: 'center', alignItems: 'center' },
+  stepperBtnText: { fontSize: 20, fontWeight: '600', color: '#208AEF' },
+  stepperValue: { fontSize: 24, fontWeight: '700', minWidth: 32, textAlign: 'center' },
+
+  segmentBtn: { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: 'rgba(150,150,150,0.15)' },
+  segmentBtnLeft: { borderTopLeftRadius: 8, borderBottomLeftRadius: 8 },
+  segmentBtnRight: { borderTopRightRadius: 8, borderBottomRightRadius: 8 },
+  segmentBtnActive: { backgroundColor: '#208AEF' },
+  segmentBtnText: { fontSize: 14, fontWeight: '600', color: '#999' },
+  segmentBtnTextActive: { color: '#FFFFFF' },
 });

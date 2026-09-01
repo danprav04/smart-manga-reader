@@ -28,6 +28,11 @@ const defaultSettings: Settings = {
     vocabulary: false,
     grammar: false,
   },
+  goalSettings: {
+    dailyPageGoal: 3,
+    streakFreezeEnabled: true,
+    questionCheckModel: 'main',
+  },
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);

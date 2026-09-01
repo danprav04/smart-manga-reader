@@ -6,7 +6,9 @@ import {
 } from 'react-native';
 import { useBreakdown } from '../store/breakdownStore';
 import { useSettings } from '../store/settingsStore';
+import { useDailyGoal } from '../store/goalStore';
 import { FuriganaText } from './FuriganaText';
+import { ComprehensionQuiz } from './ComprehensionQuiz';
 import { logger, LogCategory } from '../utils/logger';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -284,6 +286,7 @@ const RegionCard = ({
 export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>(({ onDismiss, onReanalyze }, ref) => {
   const { state } = useBreakdown();
   const { settings, updateSettings } = useSettings();
+  const goalContext = useDailyGoal();
   const [revealAll, setRevealAll] = useState(false);
   const forceRevealAll = revealAll || settings.disableSpoilers;
   const revealGroups = settings.revealGroups || { readings: false, vocabulary: false, grammar: false };
@@ -395,7 +398,8 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
     fullTranslation, 
     textRegions = [], 
     vocabulary = [], 
-    grammarPoints = [] 
+    grammarPoints = [],
+    comprehensionQuestions = []
   } = state.currentBreakdown;
 
   const handleToggleGroup = (group: keyof typeof revealGroups) => {
@@ -526,6 +530,18 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
             />
           ))}
         </View>
+
+        {/* Comprehension Questions */}
+        {comprehensionQuestions.length > 0 && !state.isAnalyzing && (
+          <View style={styles.section}>
+            <ComprehensionQuiz 
+              questions={comprehensionQuestions} 
+              onAllCorrect={() => {
+                goalContext.markPageCompleted();
+              }} 
+            />
+          </View>
+        )}
 
         <Animated.View style={{ 
           height: translateY.interpolate({

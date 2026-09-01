@@ -38,6 +38,13 @@ CRITICAL INSTRUCTIONS FOR EXHAUSTIVE EXTRACTION:
    - Do NOT skip particles, common words, or conjugations.
 4. DO NOT be lazy. If there are 10 text bubbles, there MUST be 10 text regions extracted, and corresponding exhaustive analysis for all 10.
 
+COMPREHENSION CHECK:
+- Generate 1-2 simple multiple-choice comprehension questions about the page content.
+- Questions should test understanding of what's happening on the page (dialogue meaning, character actions, plot context).
+- Each question MUST have exactly 4 options labeled A through D and exactly one correct answer.
+- Calibrate difficulty to the user's Japanese level. For beginners, ask about overall meaning. For advanced, ask about nuance or specific grammar usage.
+- Include a brief hint for each question that guides without giving away the answer.
+
 You must structure your JSON into TWO phases:
 Phase 1: "textRegions" - Output all boxes and text quickly.
 Phase 2: "detailedAnalysis" - Output vocabulary and grammar linked by ID.
@@ -68,7 +75,16 @@ Your output must be a JSON object with exactly this structure:
     }
   ],
   "fullTranslation": "...",
-  "contextNotes": "..."
+  "contextNotes": "...",
+  "comprehensionQuestions": [
+    {
+      "question": "A comprehension question about the page content",
+      "type": "multiple_choice",
+      "options": ["A) First option", "B) Second option", "C) Third option", "D) Fourth option"],
+      "correctAnswer": "A",
+      "hint": "A brief hint without giving away the answer"
+    }
+  ]
 }
 `;
 
@@ -147,12 +163,15 @@ const mapParsedBreakdown = (parsed: any): BreakdownResult => {
     }
   });
 
+  const comprehensionQuestions = parsed.comprehensionQuestions || [];
+
   return {
     textRegions: mappedTextRegions,
     vocabulary: vocabulary,
     grammarPoints: grammarPoints,
     fullTranslation: parsed.fullTranslation || '',
-    contextNotes: parsed.contextNotes
+    contextNotes: parsed.contextNotes,
+    comprehensionQuestions: comprehensionQuestions
   };
 };
 
@@ -465,7 +484,7 @@ const analyzeWithGemini = async (
                       const cleaned = cleanJsonString(fullText);
                       if (cleaned.endsWith('}')) {
                         const parsed = JSON.parse(cleaned);
-                        if (parsed.textRegions && parsed.detailedAnalysis && parsed.contextNotes !== undefined) {
+                        if (parsed.textRegions && parsed.detailedAnalysis && parsed.contextNotes !== undefined && parsed.comprehensionQuestions) {
                           logger.info(LogCategory.AI, "JSON fully formed, aggressively terminating stream.");
                           isDone = true;
                           es.removeAllEventListeners();
@@ -648,7 +667,7 @@ const analyzeWithOpenAI = async (
                       const cleaned = cleanJsonString(fullText);
                       if (cleaned.endsWith('}')) {
                         const parsed = JSON.parse(cleaned);
-                        if (parsed.textRegions && parsed.detailedAnalysis && parsed.contextNotes !== undefined) {
+                        if (parsed.textRegions && parsed.detailedAnalysis && parsed.contextNotes !== undefined && parsed.comprehensionQuestions) {
                           logger.info(LogCategory.AI, "JSON fully formed, aggressively terminating stream.");
                           isDone = true;
                           es.removeAllEventListeners();

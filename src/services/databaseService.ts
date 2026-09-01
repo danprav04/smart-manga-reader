@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import { BreakdownResult, StoredBreakdown, PageSummary } from '../types/breakdown';
+import { BreakdownResult, StoredBreakdown, PageSummary, DailyProgress, StreakData } from '../types/breakdown';
 
 const DB_NAME = 'smartmanga.db';
 
@@ -72,6 +72,27 @@ export const initDatabase = async (): Promise<void> => {
       region_index INTEGER,
       sort_order INTEGER
     );
+
+    CREATE TABLE IF NOT EXISTS daily_progress (
+      date TEXT PRIMARY KEY,
+      pages_scanned INTEGER DEFAULT 0,
+      pages_completed INTEGER DEFAULT 0,
+      new_words INTEGER DEFAULT 0,
+      new_grammar INTEGER DEFAULT 0,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS streak_data (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      current_streak INTEGER DEFAULT 0,
+      longest_streak INTEGER DEFAULT 0,
+      last_active_date TEXT,
+      freeze_available INTEGER DEFAULT 1,
+      freeze_last_recharged TEXT
+    );
+
+    INSERT OR IGNORE INTO streak_data (id, current_streak, longest_streak, freeze_available)
+    VALUES (1, 0, 0, 1);
   `);
   
   // Migration for old databases that don't have furigana_text
@@ -175,6 +196,13 @@ export const saveBreakdown = async (
       );
     }
   });
+
+  // Track daily progress
+  try {
+    await recordPageScanned(result.vocabulary.length, result.grammarPoints.length);
+  } catch (e) {
+    console.warn('Failed to record daily progress', e);
+  }
 
   return pageId;
 };
@@ -311,4 +339,187 @@ export const getGrammarStatistics = async (): Promise<{pattern: string, explanat
     GROUP BY pattern, explanation
     ORDER BY count DESC
   `);
+};
+
+// --- Daily Progress & Streak Functions ---
+
+const getTodayDateString = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
+const getYesterdayDateString = (): string => {
+  const now = new Date();
+  now.setDate(now.getDate() - 1);
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
+export const recordPageScanned = async (newWords: number, newGrammar: number): Promise<void> => {
+  const db = await getDb();
+  const today = getTodayDateString();
+  await db.runAsync(`
+    INSERT INTO daily_progress (date, pages_scanned, pages_completed, new_words, new_grammar, updated_at)
+    VALUES (?, 1, 0, ?, ?, ?)
+    ON CONFLICT(date) DO UPDATE SET
+      pages_scanned = pages_scanned + 1,
+      new_words = new_words + excluded.new_words,
+      new_grammar = new_grammar + excluded.new_grammar,
+      updated_at = excluded.updated_at
+  `, [today, newWords, newGrammar, new Date().toISOString()]);
+};
+
+export const recordPageCompleted = async (): Promise<void> => {
+  const db = await getDb();
+  const today = getTodayDateString();
+  await db.runAsync(`
+    INSERT INTO daily_progress (date, pages_scanned, pages_completed, new_words, new_grammar, updated_at)
+    VALUES (?, 0, 1, 0, 0, ?)
+    ON CONFLICT(date) DO UPDATE SET
+      pages_completed = pages_completed + 1,
+      updated_at = excluded.updated_at
+  `, [today, new Date().toISOString()]);
+};
+
+export const getTodayProgress = async (): Promise<DailyProgress> => {
+  const db = await getDb();
+  const today = getTodayDateString();
+  const row = await db.getFirstAsync<any>(
+    `SELECT * FROM daily_progress WHERE date = ?`, [today]
+  );
+  if (!row) {
+    return { date: today, pagesScanned: 0, pagesCompleted: 0, newWords: 0, newGrammar: 0 };
+  }
+  return {
+    date: row.date,
+    pagesScanned: row.pages_scanned,
+    pagesCompleted: row.pages_completed,
+    newWords: row.new_words,
+    newGrammar: row.new_grammar,
+  };
+};
+
+export const getDailyProgressRange = async (startDate: string, endDate: string): Promise<DailyProgress[]> => {
+  const db = await getDb();
+  const rows = await db.getAllAsync<any>(
+    `SELECT * FROM daily_progress WHERE date >= ? AND date <= ? ORDER BY date ASC`,
+    [startDate, endDate]
+  );
+  return rows.map(row => ({
+    date: row.date,
+    pagesScanned: row.pages_scanned,
+    pagesCompleted: row.pages_completed,
+    newWords: row.new_words,
+    newGrammar: row.new_grammar,
+  }));
+};
+
+export const getStreakData = async (): Promise<StreakData> => {
+  const db = await getDb();
+  const row = await db.getFirstAsync<any>(`SELECT * FROM streak_data WHERE id = 1`);
+  if (!row) {
+    return { currentStreak: 0, longestStreak: 0, lastActiveDate: null, freezeAvailable: true, freezeLastRecharged: null };
+  }
+  return {
+    currentStreak: row.current_streak,
+    longestStreak: row.longest_streak,
+    lastActiveDate: row.last_active_date,
+    freezeAvailable: row.freeze_available === 1,
+    freezeLastRecharged: row.freeze_last_recharged,
+  };
+};
+
+export const reconcileStreak = async (dailyGoal: number, streakFreezeEnabled: boolean): Promise<StreakData> => {
+  const db = await getDb();
+  const streak = await getStreakData();
+  const today = getTodayDateString();
+  const yesterday = getYesterdayDateString();
+
+  // If already reconciled for today, just return
+  if (streak.lastActiveDate === today) {
+    return streak;
+  }
+
+  // Check if the freeze should recharge (weekly: if last recharge was 7+ days ago)
+  if (streak.freezeLastRecharged) {
+    const lastRecharge = new Date(streak.freezeLastRecharged);
+    const now = new Date();
+    const daysSinceRecharge = Math.floor((now.getTime() - lastRecharge.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysSinceRecharge >= 7 && !streak.freezeAvailable) {
+      await db.runAsync(
+        `UPDATE streak_data SET freeze_available = 1, freeze_last_recharged = ? WHERE id = 1`,
+        [today]
+      );
+      streak.freezeAvailable = true;
+      streak.freezeLastRecharged = today;
+    }
+  }
+
+  // If there's no lastActiveDate, this is the first time — nothing to reconcile
+  if (!streak.lastActiveDate) {
+    return streak;
+  }
+
+  // Check if yesterday met the goal
+  const yesterdayProgress = await db.getFirstAsync<any>(
+    `SELECT pages_completed FROM daily_progress WHERE date = ?`, [yesterday]
+  );
+  const yesterdayCompleted = yesterdayProgress?.pages_completed || 0;
+
+  // If last active was yesterday and they met the goal, streak is already maintained
+  if (streak.lastActiveDate === yesterday) {
+    // Already counted yesterday, nothing to do
+    return streak;
+  }
+
+  // If last active was before yesterday, we need to check for gaps
+  const lastActive = new Date(streak.lastActiveDate + 'T00:00:00');
+  const todayDate = new Date(today + 'T00:00:00');
+  const daysSinceActive = Math.floor((todayDate.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (daysSinceActive === 1) {
+    // Yesterday was the last active day — streak continues naturally
+    return streak;
+  } else if (daysSinceActive === 2 && streakFreezeEnabled && streak.freezeAvailable) {
+    // Missed exactly one day — use freeze
+    await db.runAsync(
+      `UPDATE streak_data SET freeze_available = 0, freeze_last_recharged = COALESCE(freeze_last_recharged, ?) WHERE id = 1`,
+      [today]
+    );
+    streak.freezeAvailable = false;
+    return streak;
+  } else {
+    // Streak is broken
+    await db.runAsync(
+      `UPDATE streak_data SET current_streak = 0 WHERE id = 1`
+    );
+    streak.currentStreak = 0;
+    return streak;
+  }
+};
+
+export const updateStreakForGoalMet = async (): Promise<StreakData> => {
+  const db = await getDb();
+  const today = getTodayDateString();
+  const streak = await getStreakData();
+
+  // If already marked active today, don't double-count
+  if (streak.lastActiveDate === today) {
+    return streak;
+  }
+
+  const newStreak = streak.currentStreak + 1;
+  const newLongest = Math.max(streak.longestStreak, newStreak);
+
+  await db.runAsync(
+    `UPDATE streak_data SET current_streak = ?, longest_streak = ?, last_active_date = ? WHERE id = 1`,
+    [newStreak, newLongest, today]
+  );
+
+  return {
+    currentStreak: newStreak,
+    longestStreak: newLongest,
+    lastActiveDate: today,
+    freezeAvailable: streak.freezeAvailable,
+    freezeLastRecharged: streak.freezeLastRecharged,
+  };
 };
