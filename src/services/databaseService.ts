@@ -33,7 +33,9 @@ export const initDatabase = async (): Promise<void> => {
       full_translation TEXT,
       context_notes TEXT,
       screenshot_path TEXT,
-      analyzed_at TEXT NOT NULL
+      analyzed_at TEXT NOT NULL,
+      comprehension_questions TEXT,
+      quiz_completed INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS text_regions (
@@ -130,6 +132,19 @@ export const initDatabase = async (): Promise<void> => {
   } catch (e) {
     console.warn('Failed to migrate pages table to drop UNIQUE constraint', e);
   }
+
+  // Migration for comprehension questions and quiz completed
+  try {
+    const pageCols = await db.getAllAsync<{name: string}>(`PRAGMA table_info(pages);`);
+    if (pageCols && !pageCols.find(c => c.name === 'comprehension_questions')) {
+      await db.execAsync(`ALTER TABLE pages ADD COLUMN comprehension_questions TEXT;`);
+    }
+    if (pageCols && !pageCols.find(c => c.name === 'quiz_completed')) {
+      await db.execAsync(`ALTER TABLE pages ADD COLUMN quiz_completed INTEGER DEFAULT 0;`);
+    }
+  } catch (e) {
+    console.warn('Failed to migrate pages table for quiz features', e);
+  }
 };
 
 export const saveBreakdown = async (
@@ -145,15 +160,17 @@ export const saveBreakdown = async (
   await db.withTransactionAsync(async () => {
     // Insert the page as a new scan
     const insertPage = await db.runAsync(
-      `INSERT INTO pages (url, site_domain, full_translation, context_notes, screenshot_path, analyzed_at) 
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO pages (url, site_domain, full_translation, context_notes, screenshot_path, analyzed_at, comprehension_questions, quiz_completed) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         url, 
         domain, 
         result.fullTranslation, 
         result.contextNotes || null, 
         screenshotPath || null, 
-        new Date().toISOString()
+        new Date().toISOString(),
+        result.comprehensionQuestions ? JSON.stringify(result.comprehensionQuestions) : null,
+        0
       ]
     );
     
@@ -246,7 +263,9 @@ export const getBreakdownByUrl = async (url: string): Promise<StoredBreakdown | 
       explanation: g.explanation,
       exampleFromText: g.example_from_text,
       regionIndex: g.region_index
-    }))
+    })),
+    comprehensionQuestions: page.comprehension_questions ? JSON.parse(page.comprehension_questions) : undefined,
+    quizCompleted: page.quiz_completed === 1
   };
 };
 
@@ -288,7 +307,9 @@ export const getBreakdownById = async (id: number): Promise<StoredBreakdown | nu
       explanation: g.explanation,
       exampleFromText: g.example_from_text,
       regionIndex: g.region_index
-    }))
+    })),
+    comprehensionQuestions: page.comprehension_questions ? JSON.parse(page.comprehension_questions) : undefined,
+    quizCompleted: page.quiz_completed === 1
   };
 };
 
@@ -378,6 +399,12 @@ export const recordPageCompleted = async (): Promise<void> => {
       pages_completed = pages_completed + 1,
       updated_at = excluded.updated_at
   `, [today, new Date().toISOString()]);
+};
+
+export const markQuizCompleted = async (pageId: number): Promise<void> => {
+  if (!pageId) return;
+  const db = await getDb();
+  await db.runAsync(`UPDATE pages SET quiz_completed = 1 WHERE id = ?`, [pageId]);
 };
 
 export const getTodayProgress = async (): Promise<DailyProgress> => {

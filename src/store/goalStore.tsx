@@ -73,7 +73,8 @@ export const GoalProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     if (!settingsLoading) {
-      loadInitialData();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      loadInitialData().catch(console.error);
     }
   }, [settingsLoading, loadInitialData]);
 

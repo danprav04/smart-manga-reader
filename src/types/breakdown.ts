@@ -45,6 +45,7 @@ export interface StoredBreakdown extends BreakdownResult {
   siteDomain: string;
   analyzedAt: string;
   screenshotPath?: string;
+  quizCompleted?: boolean;
 }
 
 export interface PageSummary {

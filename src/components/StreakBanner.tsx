@@ -27,7 +27,7 @@ export const StreakBanner: React.FC<StreakBannerProps> = ({
   milestoneReached,
   onDismiss,
 }) => {
-  const translateY = useRef(new Animated.Value(-100)).current;
+  const [translateY] = useState(() => new Animated.Value(-100));
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;

@@ -7,15 +7,31 @@ import { ComprehensionQuestion } from '../types/breakdown';
 interface ComprehensionQuizProps {
   questions: ComprehensionQuestion[];
   onAllCorrect: () => void;
+  initialCompleted?: boolean;
 }
 
-export const ComprehensionQuiz: React.FC<ComprehensionQuizProps> = ({ questions, onAllCorrect }) => {
+export const ComprehensionQuiz: React.FC<ComprehensionQuizProps> = ({ questions, onAllCorrect, initialCompleted = false }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [status, setStatus] = useState<'idle' | 'correct' | 'wrong'>('idle');
-  const [completed, setCompleted] = useState(false);
+  const [completed, setCompleted] = useState(initialCompleted);
+
+  React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCompleted(initialCompleted);
+    if (!initialCompleted) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCurrentIndex(0);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedOption(null);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStatus('idle');
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShowHint(false);
+    }
+  }, [initialCompleted, questions]);
 
   if (!questions || questions.length === 0) {
     return null;

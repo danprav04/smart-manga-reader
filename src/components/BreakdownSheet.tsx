@@ -536,8 +536,14 @@ export const BreakdownSheet = forwardRef<BreakdownSheetRef, BreakdownSheetProps>
           <View style={styles.section}>
             <ComprehensionQuiz 
               questions={comprehensionQuestions} 
+              initialCompleted={(state.currentBreakdown as any).quizCompleted}
               onAllCorrect={() => {
                 goalContext.markPageCompleted();
+                if (state.currentBreakdown && 'id' in state.currentBreakdown) {
+                  import('../services/databaseService').then(({ markQuizCompleted }) => {
+                    markQuizCompleted((state.currentBreakdown as any).id).catch(e => console.error(e));
+                  });
+                }
               }} 
             />
           </View>
