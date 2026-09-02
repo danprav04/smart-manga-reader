@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Text, StyleSheet, Animated } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
