@@ -5,7 +5,7 @@ module.exports = ({ config }) => {
     ...config,
     name: IS_DEV ? 'Smart Manga Reader (Dev)' : 'Smart Manga Reader',
     slug: 'smart-manga-reader',
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'smartmangareader',
@@ -71,4 +71,48 @@ module.exports = ({ config }) => {
       reactCompiler: true
     }
   };
+};
+
+const { withAndroidManifest } = require('@expo/config-plugins');
+
+const withBackgroundActions = (config) => {
+  return withAndroidManifest(config, (config) => {
+    const androidManifest = config.modResults;
+    const mainApplication = androidManifest.manifest.application[0];
+
+    const permissions = androidManifest.manifest['uses-permission'] || [];
+    const hasPermission = (name) => permissions.some(p => p.$['android:name'] === name);
+    
+    if (!hasPermission('android.permission.FOREGROUND_SERVICE')) {
+      permissions.push({ $: { 'android:name': 'android.permission.FOREGROUND_SERVICE' } });
+    }
+    if (!hasPermission('android.permission.FOREGROUND_SERVICE_DATA_SYNC')) {
+      permissions.push({ $: { 'android:name': 'android.permission.FOREGROUND_SERVICE_DATA_SYNC' } });
+    }
+    if (!hasPermission('android.permission.WAKE_LOCK')) {
+      permissions.push({ $: { 'android:name': 'android.permission.WAKE_LOCK' } });
+    }
+    androidManifest.manifest['uses-permission'] = permissions;
+
+    const services = mainApplication.service || [];
+    const hasService = services.some(s => s.$['android:name'] === 'com.asterinet.react.bgactions.RNBackgroundActionsTask');
+    
+    if (!hasService) {
+      services.push({
+        $: {
+          'android:name': 'com.asterinet.react.bgactions.RNBackgroundActionsTask',
+          'android:foregroundServiceType': 'dataSync',
+        },
+      });
+    }
+    mainApplication.service = services;
+
+    return config;
+  });
+};
+
+const originalModuleExports = module.exports;
+module.exports = (config) => {
+  let userConfig = originalModuleExports(config);
+  return withBackgroundActions(userConfig);
 };

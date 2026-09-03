@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import BackgroundService from 'react-native-background-actions';
 
 import { useSettings } from '../src/store/settingsStore';
 import { useBreakdown } from '../src/store/breakdownStore';
@@ -152,6 +153,26 @@ export default function ReaderScreen() {
       
       const { uri, base64 } = await captureWebView(viewShotRef.current);
       
+      let resolveBackground: () => void;
+      const backgroundPromise = new Promise<void>((resolve) => { resolveBackground = resolve; });
+      const backgroundTask = async () => { await backgroundPromise; };
+      
+      const backgroundOptions = {
+        taskName: 'analyze',
+        taskTitle: 'Analyzing Manga Page',
+        taskDesc: 'Extracting text and analyzing with AI...',
+        taskIcon: { name: 'ic_launcher', type: 'mipmap' },
+        color: '#FFBE98',
+        parameters: { delay: 1000 },
+        foregroundServiceType: ['dataSync'] as any
+      };
+      
+      try {
+        await BackgroundService.start(backgroundTask, backgroundOptions);
+      } catch (e) {
+        logger.warn(LogCategory.UI, 'Failed to start background service', e);
+      }
+
       const result = await analyzeScreenshot(
         base64, 
         settings, 
@@ -172,6 +193,9 @@ export default function ReaderScreen() {
       
       lastAnalyzedScrollY.current = currentScrollY;
       dispatch({ type: 'ANALYSIS_COMPLETE', payload: { result, screenshotUri: uri } });
+      
+      if (resolveBackground!) resolveBackground();
+      await BackgroundService.stop();
     } catch (e: any) {
       if (e.name === 'AbortError' || e.message?.includes('Aborted') || e.message?.includes('aborted')) {
         logger.info(LogCategory.UI, "Analysis aborted by user");
@@ -181,6 +205,7 @@ export default function ReaderScreen() {
         dispatch({ type: 'ANALYSIS_ERROR', payload: e.message });
         Alert.alert("Analysis Failed", e.message || "Something went wrong.");
       }
+      try { await BackgroundService.stop(); } catch (err) {}
     } finally {
       abortControllerRef.current = null;
     }
